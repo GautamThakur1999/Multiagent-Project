@@ -82,7 +82,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ---
 
 ## SPRINT 1 — Scaffolding, tooling & design system foundation
-**Status:** NOT STARTED
+**Status:** DONE (2026-06-18)
 **Goal:** A running Next.js + TypeScript + Tailwind app whose Tailwind theme is the real design system, with linting, formatting, and the test harness wired. No product features yet.
 
 **In scope**
@@ -100,15 +100,16 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Files to create:** `package.json`, `tailwind.config.ts`, `app/layout.tsx`, `app/page.tsx` (placeholder), `app/globals.css`, `tsconfig.json`, `.eslintrc`, `.prettierrc`, `vitest.config.ts`, `playwright.config.ts`, `.env.example`, `README.md`, `.gitignore`.
 
 **Acceptance criteria**
-- [ ] `npm run build` succeeds with zero TS errors.
-- [ ] `npm run lint` passes.
-- [ ] `npm test` runs Vitest green (sample test).
-- [ ] Tailwind exposes design tokens (e.g., a placeholder page using `bg-primary-container text-on-primary` and `font-[Plus_Jakarta_Sans]` renders correctly).
-- [ ] Directory skeleton from §1 exists (empty folders with `.gitkeep` ok).
+- [x] `npm run build` succeeds with zero TS errors.
+- [x] `npm run lint` passes.
+- [x] `npm test` runs Vitest green (sample test).
+- [x] Tailwind exposes design tokens (e.g., a placeholder page using `bg-primary-container text-on-primary` and `font-[Plus_Jakarta_Sans]` renders correctly).
+- [x] Directory skeleton from §1 exists (empty folders with `.gitkeep` ok).
 
 ---
 
 ## SPRINT 2 — Domain types, agent framework & Gemini client
+**Status:** DONE (2026-06-18)
 **Goal:** The typed backbone every agent uses: domain models, a reusable Gemini structured-output client (mockable), and a base agent abstraction. No real prompts/agents yet.
 
 **In scope**
@@ -125,10 +126,10 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Out of scope:** actual agent prompts/behavior (Sprints 3–5), API routes, UI.
 
 **Acceptance criteria**
-- [ ] All schemas exported and unit-tested (valid + invalid cases).
-- [ ] Gemini client returns typed data and retries on bad JSON (proven with a mock).
-- [ ] `BaseAgent` abstraction documented with a doc comment example.
-- [ ] `npm test` and `npm run build` green.
+- [x] All schemas exported and unit-tested (valid + invalid cases).
+- [x] Gemini client returns typed data and retries on bad JSON (proven with a mock).
+- [x] `BaseAgent` abstraction documented with a doc comment example.
+- [x] `npm test` and `npm run build` green.
 
 ---
 
@@ -314,10 +315,10 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 
 | Capability | Status | Notes |
 |---|---|---|
-| Project scaffold / tooling | ⬜ Not started | |
-| Design tokens in Tailwind | ⬜ Not started | |
-| Domain types + Zod schemas | ⬜ Not started | |
-| Gemini client (mockable) | ⬜ Not started | |
+| Project scaffold / tooling | ✅ Done | Next.js 14 App Router, TS strict, ESLint+Prettier, Vitest+Playwright. git initialized. |
+| Design tokens in Tailwind | ✅ Done | All `modern_editorial_voyager` tokens in `tailwind.config.ts`; Jakarta + Material Symbols loaded. |
+| Domain types + Zod schemas | ✅ Done | 8 schemas in `src/lib/types/`; 28 unit tests covering valid + invalid cases. |
+| Gemini client (mockable) | ✅ Done | `src/lib/gemini/client.ts` + `mock.ts`; retry, timeout, log hook; 15 unit tests. |
 | Orchestrator / constraint extraction | ⬜ Not started | |
 | Destination Research agent | ⬜ Not started | |
 | Logistics agent | ⬜ Not started | |
@@ -338,16 +339,60 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 *Each sprint appends its entry here at completion. This is the primary handover to the next Claude Code session. Be concrete: real file paths, real commands, real test output, and the single most important thing the next sprint must check first.*
 
 ### Sprint 1 — Scaffolding & design system
-- **Status:** _pending_
-- **What was built:** _…_
-- **Key files:** _…_
-- **Decisions / deviations from plan:** _…_
-- **Known issues / TODOs for later sprints:** _…_
-- **Verification (commands + result):** _…_
-- **First thing Sprint 2 should verify:** _…_
+- **Status:** DONE (2026-06-18)
+- **What was built:** Full Next.js 14 (App Router) + TypeScript-strict + Tailwind scaffold with the design system, tooling, and test harness. The scaffold was already partially present at session start; this sprint verified it against the Sprint 1 spec, confirmed correctness, ran the full verification suite, installed the Playwright browser, and initialized git.
+- **Key files:**
+  - `tailwind.config.ts` — **all** `modern_editorial_voyager/DESIGN.md` tokens ported verbatim: colors (incl. `category-food|temple|experience`, `priority-must|nice`), `fontSize` scale (`headline-xl`→`label-sm`), `borderRadius`, `spacing` (`gutter`, `margin-*`, `stack-*`), `maxWidth.container` 1280px, plus a `shadow-ambient` elevation token.
+  - `app/layout.tsx` — loads **Plus Jakarta Sans** via `next/font/google` (CSS var `--font-jakarta`) and **Material Symbols Outlined** via Google Fonts `<link>`; `body` uses `bg-background font-sans text-on-background`.
+  - `app/globals.css` — Tailwind layers + base bg/text + `.material-symbols-outlined` base style.
+  - `app/page.tsx` — Sprint 1 placeholder proving tokens resolve (uses `bg-primary-container`, `text-on-primary-container`, `category-*`, `priority-must`, `text-headline-*`, `shadow-ambient`, spacing tokens). Has `data-testid="token-badge"` for the E2E smoke test.
+  - Config: `tsconfig.json` (strict, `@/*`→`src/*`), `.eslintrc.json` (next/core-web-vitals + prettier), `.prettierrc`, `next.config.mjs`, `postcss.config.mjs`, `vitest.config.ts` (jsdom, includes only `tests/unit/**`), `playwright.config.ts` (auto-boots dev server), `.env.example` (`GEMINI_API_KEY`), `.gitignore`, `README.md`.
+  - Skeleton: `src/lib/{agents,gemini,types,prompts,data}/.gitkeep`, `src/components/.gitkeep`, `app/api/.gitkeep`.
+  - Tests: `tests/unit/sample.test.ts` (Vitest harness), `tests/e2e/smoke.spec.ts` (renders token badge + heading), `tests/setup.ts` (jest-dom).
+- **Decisions / deviations from plan:**
+  - **Material Symbols** loaded via a Google Fonts stylesheet `<link>` in `layout.tsx` (not `next/font`), since it is an icon font used app-wide; the `@next/next/no-page-custom-font` lint rule is disabled on that single line. The DESIGN.md says "Plus Jakarta Sans + Material Symbols" and the screen exports confirm Material Symbols Outlined — root `DESIGN.md`'s mention of Inter/Lucide is the superseded brief (see §1 ⚠️), ignored.
+  - Vitest `include` is scoped to `tests/unit/**` so Playwright specs in `tests/e2e/**` don't get picked up by Vitest.
+  - `git init` produced CRLF-normalization warnings (Windows) — cosmetic, not errors. No `.gitattributes` added (out of scope; note for later if cross-platform CI matters).
+- **Known issues / TODOs for later sprints:**
+  - No `@google/genai` dependency yet — **Sprint 2 must `npm install @google/genai` and `zod`** (not in `package.json`).
+  - Playwright browsers are a local/CI install step (`npx playwright install chromium`); document in CI setup during Sprint 10.
+  - Root `DESIGN.md` is the stale brief; always theme from `stitch_responsive_web_interface/modern_editorial_voyager/DESIGN.md`.
+- **Verification (commands + result):**
+  - `npm run lint` → `✔ No ESLint warnings or errors`.
+  - `npm test` → Vitest `1 passed (1)` (`tests/unit/sample.test.ts`).
+  - `npm run build` → `✓ Compiled successfully`, zero type errors; routes `/` and `/_not-found` prerendered static (First Load JS ~87 kB).
+  - `npm run test:e2e` → _pending browser install confirmation (see snapshot note); harness + config verified._
+  - `git init` + initial commit `57bfe5d` (48 files tracked, `node_modules` excluded).
+- **First thing Sprint 2 should verify:** `npm run build` + `npm test` are green from a clean state, then **install the missing deps (`@google/genai`, `zod`)** before writing types/client — they are not yet in `package.json`. Reuse `tsconfig` path alias `@/*` → `src/*` for all imports.
 
 ### Sprint 2 — Domain types, agent framework & Gemini client
-- _pending_
+- **Status:** DONE (2026-06-18)
+- **What was built:** Full typed backbone — Zod schemas + TS types, a mockable Gemini client, mock factory, env validation, and the `BaseAgent` abstraction. 49 unit tests green across 4 test files.
+- **Key files:**
+  - `src/lib/types/itinerary.ts` — `ItineraryItemSchema` (category/priority/time_block/crowd_level enums), `ItineraryDaySchema`
+  - `src/lib/types/agents.ts` — `StayRecommendationSchema`, `LogisticsLegSchema`, `BudgetBreakdownSchema`, `ReviewCheckSchema`, `ReviewResultSchema`
+  - `src/lib/types/trip.ts` — `TripConstraintsSchema` (with defaults: currency USD, travelers 1, pace moderate, clarifications_needed []), `TripStateSchema`
+  - `src/lib/types/index.ts` — barrel re-export of all types
+  - `src/lib/env.ts` — `getEnv()` with Zod validation + cache; `_resetEnvCache()` for tests
+  - `src/lib/gemini/client.ts` — `createGeminiClient(options, rawFn?)`: takes optional `RawGenerateFn` override for testing; retries up to `maxRetries` (default 2) on JSON parse or Zod validation errors; does **not** retry on API/timeout errors; fires `LogHook` on every attempt
+  - `src/lib/gemini/mock.ts` — `createMockGeminiClient(responses[])`: consumes responses in order, validates each against the schema, throws on Error instances or exhaustion
+  - `src/lib/agents/base.ts` — `BaseAgent<TInput,TOutput>` interface, `AgentResult<T>` (data + confidence + citations), `AgentError` class
+  - `tests/unit/types.test.ts` (28 tests), `tests/unit/gemini-client.test.ts` (15 tests), `tests/unit/env.test.ts` (5 tests), `tests/unit/sample.test.ts` (1 test, Sprint 1)
+- **Decisions / deviations from plan:**
+  - Installed **`@google/genai@^2.8.0`** (v2, not v1) and **`zod@^4.4.3`** (v4). Both have stable APIs compatible with the plan. `z.ZodType<T>` and `z.infer<>` work identically in Zod v4.
+  - `GeminiClient` interface (not `GeminiClientInterface`) — cleaner naming.
+  - Split mock into `src/lib/gemini/mock.ts` (separate from `client.ts`) to keep production code clean. Sprint 3+ agents import from `@/lib/gemini/mock`.
+  - `buildRealRawFn` instantiates `GoogleGenAI` eagerly (not lazily) — avoids dynamic-import complexity since this code is server-side only.
+  - `response.text` in `@google/genai` v2 is a getter returning `string | undefined` — guarded with `?? ""`.
+  - Token counts: `response.usageMetadata?.promptTokenCount`, `candidatesTokenCount`, `totalTokenCount`.
+- **Known issues / TODOs for later sprints:**
+  - `TripState.destination_output` and `logistics_output` from the plan spec are intentionally not typed as `z.unknown()` — instead, Sprint 4 will fill `stay_recommendations` and `logistics_legs` directly (already typed in `TripState`). No action needed.
+  - `src/lib/types/_zod_check.ts` temp file was created and deleted during type-checking; if it reappears, delete it.
+  - `npm audit` shows pre-existing vulnerabilities from Sprint 1 deps — not introduced by Sprint 2; address in Sprint 10.
+- **Verification:**
+  - `npm test` → **49 passed (4 files)** — `sample.test.ts` (1), `env.test.ts` (5), `types.test.ts` (28), `gemini-client.test.ts` (15)
+  - `npm run build` → `✓ Compiled successfully`, zero TS errors, routes unchanged
+- **First thing Sprint 3 should verify:** Run `npm test` + `npm run build` from clean state. Then import `TripConstraintsSchema` from `@/lib/types` and `createMockGeminiClient` from `@/lib/gemini/mock` at the top of the orchestrator file to confirm the module graph resolves before writing any prompt logic.
 
 ### Sprint 3 — Orchestrator & constraint extraction
 - _pending_
