@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VoyageAI | Generating Your Itinerary</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .agent-active-glow {
+            box-shadow: 0px 4px 20px rgba(14, 124, 123, 0.15);
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 0.2; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+        .pulse-animation {
+            animation: pulse-ring 3s infinite ease-in-out;
+        }
+        .agent-node-line {
+            background: linear-gradient(to bottom, #006161 0%, #006161 50%, transparent 100%);
+            background-size: 1px 10px;
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#002020",
+                    "on-surface": "#1a1c1b",
+                    "tertiary-fixed-dim": "#ffb693",
+                    "surface-container-highest": "#e3e2e0",
+                    "tertiary": "#854524",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#c3fffd",
+                    "surface-container-low": "#f4f3f1",
+                    "primary-container": "#0e7c7b",
+                    "tertiary-container": "#a35d39",
+                    "inverse-on-surface": "#f1f1ef",
+                    "on-secondary": "#ffffff",
+                    "surface": "#faf9f7",
+                    "inverse-surface": "#2f3130",
+                    "surface-tint": "#006a69",
+                    "surface-container": "#efeeec",
+                    "outline-variant": "#bdc9c8",
+                    "on-secondary-fixed-variant": "#822800",
+                    "on-secondary-fixed": "#380c00",
+                    "primary-fixed": "#98f2f0",
+                    "error-container": "#ffdad6",
+                    "primary-fixed-dim": "#7cd5d3",
+                    "tertiary-fixed": "#ffdbcc",
+                    "inverse-primary": "#7cd5d3",
+                    "outline": "#6e7979",
+                    "category-temple": "#6D597A",
+                    "secondary-fixed": "#ffdbcf",
+                    "surface-bright": "#faf9f7",
+                    "secondary": "#a43c12",
+                    "priority-nice": "#6C757D",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-container": "#6b1f00",
+                    "priority-must": "#0E7C7B",
+                    "on-error": "#ffffff",
+                    "secondary-container": "#fe7e4f",
+                    "on-tertiary-fixed": "#351000",
+                    "on-tertiary-container": "#fff1eb",
+                    "secondary-fixed-dim": "#ffb59c",
+                    "category-experience": "#3E5C76",
+                    "on-tertiary-fixed-variant": "#713615",
+                    "background": "#faf9f7",
+                    "surface-dim": "#dadad8",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed-variant": "#00504f",
+                    "surface-variant": "#e3e2e0",
+                    "on-error-container": "#93000a",
+                    "error": "#ba1a1a",
+                    "surface-container-high": "#e9e8e6",
+                    "on-surface-variant": "#3e4948",
+                    "primary": "#006161",
+                    "category-food": "#2D6A4F",
+                    "on-background": "#1a1c1b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "gutter": "24px",
+                    "stack-sm": "8px",
+                    "margin-mobile": "20px",
+                    "margin-desktop": "64px",
+                    "stack-lg": "32px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "body-lg": ["Plus Jakarta Sans"],
+                    "label-sm": ["Plus Jakarta Sans"],
+                    "body-md": ["Plus Jakarta Sans"],
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "headline-xl": ["Plus Jakarta Sans"],
+                    "label-md": ["Plus Jakarta Sans"]
+            },
+            "fontSize": {
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md overflow-x-hidden min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="w-full top-0 sticky bg-surface/80 backdrop-blur-md z-50">
+<div class="max-w-container-max mx-auto px-margin-desktop flex justify-between items-center h-20">
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">VoyageAI</div>
+<nav class="hidden md:flex gap-gutter items-center">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:opacity-70" href="#">Discover</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:opacity-70" href="#">My Trips</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:opacity-70" href="#">Community</a>
+</nav>
+<div class="flex gap-4 items-center">
+<button class="hidden sm:block px-6 py-2 rounded-full border border-outline text-label-md font-label-md text-primary hover:bg-surface-container-high transition-all">Sign In</button>
+<button class="bg-secondary text-white px-6 py-2 rounded-full text-label-md font-label-md hover:opacity-90 transition-all shadow-sm">Plan New Trip</button>
+</div>
+</div>
+</header>
+<main class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg">
+<!-- Orchestrator Center -->
+<div class="flex flex-col items-center justify-center mb-16 relative">
+<div class="relative z-10 bg-white p-6 rounded-full shadow-[0px_4px_30px_rgba(0,97,97,0.12)] border border-primary/10">
+<div class="w-20 h-20 bg-primary flex items-center justify-center rounded-full text-white overflow-hidden relative">
+<span class="material-symbols-outlined text-4xl" data-icon="cognition">cognition</span>
+<div class="shimmer absolute inset-0 opacity-20"></div>
+</div>
+<!-- Pulse rings -->
+<div class="absolute inset-0 bg-primary rounded-full pulse-animation -z-10"></div>
+<div class="absolute inset-0 bg-primary rounded-full pulse-animation -z-10 delay-700"></div>
+</div>
+<h1 class="font-headline-lg text-headline-lg mt-stack-md text-center">Japan 2024 Itinerary</h1>
+<p class="text-on-surface-variant text-body-lg font-body-lg italic mt-2 min-h-[28px]" id="status-line">Finding quiet temples and food streets…</p>
+</div>
+<!-- Agent Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter relative">
+<!-- Agent 1: Destination Research -->
+<div class="bg-white rounded-xl p-6 border border-outline-variant transition-all duration-500 flex flex-col items-start agent-active-glow border-primary/20" id="agent-research">
+<div class="flex justify-between w-full mb-4">
+<div class="p-3 rounded-lg bg-primary-container/10 text-primary">
+<span class="material-symbols-outlined" data-icon="travel_explore">travel_explore</span>
+</div>
+<div class="status-indicator">
+<span class="material-symbols-outlined text-primary transition-all duration-300 scale-0" data-icon="check_circle" id="check-research">check_circle</span>
+<div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" id="spinner-research"></div>
+</div>
+</div>
+<h3 class="font-headline-md text-label-md mb-2">Destination Research</h3>
+<p class="text-on-surface-variant text-label-md mb-4 leading-relaxed">Analyzing cultural hubs and seasonal cherry blossom paths.</p>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full transition-all duration-[2000ms] ease-out" id="progress-research" style="width: 65%;"></div>
+</div>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-container text-on-surface-variant rounded">Kyoto</span>
+<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-container text-on-surface-variant rounded">Nara</span>
+</div>
+</div>
+<!-- Agent 2: Logistics -->
+<div class="bg-white rounded-xl p-6 border border-outline-variant transition-all duration-500 flex flex-col items-start opacity-70" id="agent-logistics">
+<div class="flex justify-between w-full mb-4">
+<div class="p-3 rounded-lg bg-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="train">train</span>
+</div>
+<div class="status-indicator">
+<span class="material-symbols-outlined text-primary transition-all duration-300 scale-0" data-icon="check_circle" id="check-logistics">check_circle</span>
+<div class="hidden w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" id="spinner-logistics"></div>
+</div>
+</div>
+<h3 class="font-headline-md text-label-md mb-2">Logistics</h3>
+<p class="text-on-surface-variant text-label-md mb-4 leading-relaxed">Mapping JR Pass connectivity and hotel proximity.</p>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full transition-all duration-[2000ms] ease-out" id="progress-logistics" style="width: 0%;"></div>
+</div>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-container text-on-surface-variant rounded">Shinkansen</span>
+</div>
+</div>
+<!-- Agent 3: Budget -->
+<div class="bg-white rounded-xl p-6 border border-outline-variant transition-all duration-500 flex flex-col items-start opacity-70" id="agent-budget">
+<div class="flex justify-between w-full mb-4">
+<div class="p-3 rounded-lg bg-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+</div>
+<div class="status-indicator">
+<span class="material-symbols-outlined text-primary transition-all duration-300 scale-0" data-icon="check_circle" id="check-budget">check_circle</span>
+<div class="hidden w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" id="spinner-budget"></div>
+</div>
+</div>
+<h3 class="font-headline-md text-label-md mb-2">Budget Optimizer</h3>
+<p class="text-on-surface-variant text-label-md mb-4 leading-relaxed">Balancing Michelin star dinners with authentic street food.</p>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full transition-all duration-[2000ms] ease-out" id="progress-budget" style="width: 0%;"></div>
+</div>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-container text-on-surface-variant rounded">$120/Day Avg</span>
+</div>
+</div>
+<!-- Agent 4: Review Check -->
+<div class="bg-white rounded-xl p-6 border border-outline-variant transition-all duration-500 flex flex-col items-start opacity-70" id="agent-review">
+<div class="flex justify-between w-full mb-4">
+<div class="p-3 rounded-lg bg-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+</div>
+<div class="status-indicator">
+<span class="material-symbols-outlined text-primary transition-all duration-300 scale-0" data-icon="check_circle" id="check-review">check_circle</span>
+<div class="hidden w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" id="spinner-review"></div>
+</div>
+</div>
+<h3 class="font-headline-md text-label-md mb-2">Review Check</h3>
+<p class="text-on-surface-variant text-label-md mb-4 leading-relaxed">Cross-referencing traveler sentiment and recent closures.</p>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full transition-all duration-[2000ms] ease-out" id="progress-review" style="width: 0%;"></div>
+</div>
+<div class="mt-4 flex flex-wrap gap-2">
+<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-container text-on-surface-variant rounded">4.8+ Stars</span>
+</div>
+</div>
+</div>
+<!-- Experience Preview Card (Subtle hint of results) -->
+<div class="mt-16 bg-surface-container-low rounded-2xl overflow-hidden border border-outline-variant flex flex-col md:flex-row shadow-sm">
+<div class="md:w-1/3 relative h-64 md:h-auto">
+<img alt="Kyoto Temple" class="w-full h-full object-cover grayscale opacity-50 transition-all duration-1000" data-alt="A serene, cinematic photograph of a traditional red Japanese pagoda surrounded by soft pink cherry blossoms at dusk. The lighting is ethereal and atmospheric, with a shallow depth of field focusing on the intricate wooden details of the structure. The overall aesthetic is elegant and premium, reflecting a high-end travel magazine style with soft ambient shadows and deep teal accents." id="preview-image" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwphkQ-ZgpB71yfFun55gEtHuWay8frnQFERExGkfbJJUYusuO8UXUGqVlAyw_RIm7LYeI9QZx7QIdgtRk8iLCyR0xMNoOa_zXZTDz5XE-JvXlDrACRl1PyBRb9xvB8W4l6g1FoBYqGCLfXHNmfDoH0iO5k3ljuacSGIiDhqKuFdeJrywflmcgethFWHZmynfJZGPBO5oDFMjRchTFPDritrsFxx9VC5CxhB4KZhYMkEbGRtER2h5Xkrw9tmbj8XTp75X1xHqZAnE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+</div>
+<div class="md:w-2/3 p-8 flex flex-col justify-center">
+<div class="inline-flex items-center gap-2 mb-4">
+<span class="w-8 h-[1px] bg-primary"></span>
+<span class="text-label-sm font-label-sm text-primary tracking-widest uppercase">Sneak Peek</span>
+</div>
+<h2 class="font-headline-md text-headline-md mb-4">Curating Arashiyama Morning</h2>
+<p class="text-on-surface-variant text-body-md leading-relaxed mb-6">Our agents are currently securing the best time-slot for the Bamboo Grove to ensure you experience it without the crowds.</p>
+<div class="flex gap-4">
+<div class="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-sm" data-icon="wb_sunny">wb_sunny</span>
+<span class="text-label-md">Best at 7:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full bg-surface-container-highest mt-20">
+<div class="max-w-container-max mx-auto px-margin-desktop py-stack-lg flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex flex-col items-center md:items-start">
+<div class="font-headline-sm text-headline-sm text-primary font-bold mb-2">VoyageAI</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant text-center md:text-left">© 2024 VoyageAI Travel Editorial. All rights reserved.</p>
+</div>
+<div class="flex gap-gutter">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Terms</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Destinations</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Press</a>
+</div>
+</div>
+</footer>
+<script>
+        const statuses = [
+            "Finding quiet temples and food streets…",
+            "Calculating Shinkansen routes…",
+            "Checking hotel availability in Kyoto…",
+            "Optimizing daily walking distances…",
+            "Verifying local opening hours…",
+            "Finalizing your premium itinerary…"
+        ];
+
+        let statusIndex = 0;
+        const statusElement = document.getElementById('status-line');
+        const previewImage = document.getElementById('preview-image');
+
+        function updateStatus() {
+            statusIndex = (statusIndex + 1) % statuses.length;
+            statusElement.style.opacity = 0;
+            setTimeout(() => {
+                statusElement.innerText = statuses[statusIndex];
+                statusElement.style.opacity = 1;
+            }, 500);
+        }
+
+        setInterval(updateStatus, 3500);
+
+        // Simulated Agent Sequence
+        const agents = [
+            { id: 'research', delay: 2000 },
+            { id: 'logistics', delay: 5000 },
+            { id: 'budget', delay: 8000 },
+            { id: 'review', delay: 11000 }
+        ];
+
+        function activateAgent(agentId) {
+            const card = document.getElementById(`agent-${agentId}`);
+            const spinner = document.getElementById(`spinner-${agentId}`);
+            const progress = document.getElementById(`progress-${agentId}`);
+            const check = document.getElementById(`check-${agentId}`);
+            const iconContainer = card.querySelector('.p-3');
+
+            // Activation phase
+            card.classList.remove('opacity-70');
+            card.classList.add('agent-active-glow', 'border-primary/20');
+            spinner.classList.remove('hidden');
+            iconContainer.classList.remove('bg-surface-container', 'text-on-surface-variant');
+            iconContainer.classList.add('bg-primary-container/10', 'text-primary');
+
+            // Complete phase (simulated)
+            setTimeout(() => {
+                progress.style.width = '100%';
+                setTimeout(() => {
+                    spinner.classList.add('hidden');
+                    check.classList.remove('scale-0');
+                    check.classList.add('scale-100');
+                    
+                    // Reveal image more if it's the last agent
+                    if(agentId === 'review') {
+                        previewImage.classList.remove('grayscale', 'opacity-50');
+                    }
+                }, 1500);
+            }, 3000);
+        }
+
+        // Research starts active by default (handled in HTML for visual)
+        setTimeout(() => activateAgent('research'), 0);
+        setTimeout(() => activateAgent('logistics'), 4000);
+        setTimeout(() => activateAgent('budget'), 8000);
+        setTimeout(() => activateAgent('review'), 12000);
+
+        // Redirect after finish
+        setTimeout(() => {
+            statusElement.innerText = "Done! Opening your journey...";
+        }, 17000);
+    </script>
+</body></html>

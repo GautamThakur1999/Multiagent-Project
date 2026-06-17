@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .soft-shadow {
+      box-shadow: 0px 4px 20px rgba(14, 124, 123, 0.08);
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #006161 0%, #0e7c7b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "on-primary-fixed": "#002020",
+                  "on-surface": "#1a1c1b",
+                  "tertiary-fixed-dim": "#ffb693",
+                  "surface-container-highest": "#e3e2e0",
+                  "tertiary": "#854524",
+                  "on-tertiary": "#ffffff",
+                  "on-primary-container": "#c3fffd",
+                  "surface-container-low": "#f4f3f1",
+                  "primary-container": "#0e7c7b",
+                  "tertiary-container": "#a35d39",
+                  "inverse-on-surface": "#f1f1ef",
+                  "on-secondary": "#ffffff",
+                  "surface": "#faf9f7",
+                  "inverse-surface": "#2f3130",
+                  "surface-tint": "#006a69",
+                  "surface-container": "#efeeec",
+                  "outline-variant": "#bdc9c8",
+                  "on-secondary-fixed-variant": "#822800",
+                  "on-secondary-fixed": "#380c00",
+                  "primary-fixed": "#98f2f0",
+                  "error-container": "#ffdad6",
+                  "primary-fixed-dim": "#7cd5d3",
+                  "tertiary-fixed": "#ffdbcc",
+                  "inverse-primary": "#7cd5d3",
+                  "outline": "#6e7979",
+                  "category-temple": "#6D597A",
+                  "secondary-fixed": "#ffdbcf",
+                  "surface-bright": "#faf9f7",
+                  "secondary": "#a43c12",
+                  "priority-nice": "#6C757D",
+                  "surface-container-lowest": "#ffffff",
+                  "on-secondary-container": "#6b1f00",
+                  "priority-must": "#0E7C7B",
+                  "on-error": "#ffffff",
+                  "secondary-container": "#fe7e4f",
+                  "on-tertiary-fixed": "#351000",
+                  "on-tertiary-container": "#fff1eb",
+                  "secondary-fixed-dim": "#ffb59c",
+                  "category-experience": "#3E5C76",
+                  "on-tertiary-fixed-variant": "#713615",
+                  "background": "#faf9f7",
+                  "surface-dim": "#dadad8",
+                  "on-primary": "#ffffff",
+                  "on-primary-fixed-variant": "#00504f",
+                  "surface-variant": "#e3e2e0",
+                  "on-error-container": "#93000a",
+                  "error": "#ba1a1a",
+                  "surface-container-high": "#e9e8e6",
+                  "on-surface-variant": "#3e4948",
+                  "primary": "#006161",
+                  "category-food": "#2D6A4F",
+                  "on-background": "#1a1c1b"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.25rem",
+                  "lg": "0.5rem",
+                  "xl": "0.75rem",
+                  "full": "9999px"
+          },
+          "spacing": {
+                  "stack-md": "16px",
+                  "gutter": "24px",
+                  "stack-sm": "8px",
+                  "margin-mobile": "20px",
+                  "margin-desktop": "64px",
+                  "stack-lg": "32px",
+                  "container-max": "1280px"
+          },
+          "fontFamily": {
+                  "body-lg": ["Plus Jakarta Sans"],
+                  "label-sm": ["Plus Jakarta Sans"],
+                  "body-md": ["Plus Jakarta Sans"],
+                  "headline-lg": ["Plus Jakarta Sans"],
+                  "headline-md": ["Plus Jakarta Sans"],
+                  "headline-lg-mobile": ["Plus Jakarta Sans"],
+                  "headline-xl": ["Plus Jakarta Sans"],
+                  "label-md": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+                  "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                  "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                  "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                  "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                  "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                  "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                  "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                  "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "600"}]
+          }
+        },
+      },
+    }
+  </script>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- TopNavBar (Shared Component) -->
+<header class="w-full top-0 sticky bg-surface/80 backdrop-blur-md z-50">
+<nav class="max-w-container-max mx-auto px-margin-desktop flex justify-between items-center h-20">
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">
+        VoyageAI
+      </div>
+<div class="hidden md:flex items-center space-x-gutter">
+<a class="text-primary dark:text-primary-fixed-dim border-b-2 border-primary dark:border-primary-fixed-dim pb-1 font-body-md text-body-md transition-colors cursor-pointer active:opacity-70" href="#">Discover</a>
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md cursor-pointer active:opacity-70" href="#">My Trips</a>
+<a class="text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md cursor-pointer active:opacity-70" href="#">Community</a>
+</div>
+<div class="flex items-center space-x-4">
+<button class="hidden md:block font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Sign In</button>
+<button class="bg-secondary text-on-secondary px-6 py-2.5 rounded-full font-label-md text-label-md font-bold hover:opacity-90 active:scale-95 transition-all">Plan New Trip</button>
+</div>
+</nav>
+</header>
+<main class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg">
+<!-- Hero / Intro Section -->
+<section class="max-w-3xl mx-auto text-center mb-stack-lg">
+<h1 class="font-headline-xl text-headline-xl text-on-surface mb-4">Let's refine your Japan plan</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">We've crunched the numbers for your 5-day adventure. A $300 budget is tight for Japan, but we can help you find a middle ground.</p>
+</section>
+<!-- Main Edge State Content - Bento Style -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Primary Alert Card -->
+<div class="md:col-span-8 bg-surface-container-lowest rounded-xl p-stack-lg soft-shadow border border-outline-variant/30">
+<div class="flex items-start space-x-4 mb-stack-md">
+<div class="p-3 bg-secondary-container rounded-full">
+<span class="material-symbols-outlined text-on-secondary-container text-2xl">error_outline</span>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Budget Check Required</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">A $300 budget won't cover 5 days in Japan. For a standard trip including accommodation and transit, a more realistic starting point is around $850.</p>
+</div>
+</div>
+<div class="mt-stack-lg">
+<h3 class="font-label-md text-label-md text-primary uppercase tracking-wider mb-4">Realistic Daily Breakdown</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+<div class="flex items-center space-x-3">
+<span class="material-symbols-outlined text-primary">hotel</span>
+<span class="font-body-md text-body-md">Hostels / Capsules</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">$50 - $80 / night</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+<div class="flex items-center space-x-3">
+<span class="material-symbols-outlined text-primary">restaurant</span>
+<span class="font-body-md text-body-md">Meals &amp; Coffee</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">$40 - $60 / day</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+<div class="flex items-center space-x-3">
+<span class="material-symbols-outlined text-primary">train</span>
+<span class="font-body-md text-body-md">Local Transit</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">$15 - $25 / day</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Suggested Adjustments Sidebar -->
+<div class="md:col-span-4 space-y-gutter">
+<div class="bg-primary-container text-on-primary-container rounded-xl p-stack-md soft-shadow">
+<h3 class="font-headline-sm text-headline-md mb-2">VoyageAI Suggests</h3>
+<p class="font-body-md text-body-md opacity-90 mb-stack-md">Based on current travel trends in Japan, we recommend these shifts:</p>
+<ul class="space-y-4">
+<li class="flex items-start space-x-3">
+<span class="material-symbols-outlined mt-0.5">update</span>
+<span class="font-body-md text-body-md">Reduce to 2 days for the current budget</span>
+</li>
+<li class="flex items-start space-x-3">
+<span class="material-symbols-outlined mt-0.5">payments</span>
+<span class="font-body-md text-body-md">Increase budget to $850 for 5 days</span>
+</li>
+</ul>
+<button class="w-full mt-stack-lg bg-surface-container-lowest text-primary py-3 rounded-lg font-label-md text-label-md font-bold hover:bg-surface-bright transition-all shadow-sm">
+            Adjust My Plan
+          </button>
+</div>
+<div class="bg-surface-container-highest rounded-xl p-stack-md border border-outline-variant/50 overflow-hidden relative group">
+<img class="absolute inset-0 w-full h-full object-cover opacity-10 group-hover:opacity-20 transition-opacity duration-500" data-alt="A cinematic, low-angle shot of a rainy neon-lit street in Shinjuku, Tokyo at night. The puddles on the ground reflect the vibrant pink and blue signs. The scene is sophisticated and high-energy, with a premium editorial feel that emphasizes the alluring mystery of Japanese urban life. The lighting is moody yet clear, with a focus on depth and professional photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcZhnRd_M4j-rHJefcBeQ2o4QjNwu-vo50t8_w1SSuZL-tNjFEBgakIcZMQiio7uphNsvpYoUgK2JDuCpMCNLfcjrzoShVsEB6x3a6d6cGgFm0XO0BMNtQ6eH_8UNdFpUKtMBUniH6pyqEESlXp6aK7ZYL4D7RK1H3jpgccV9bZ0oirqhposjDSMrpmDDCIfcW22ltTaq9IoRInOf6iEHxK47yDL6_2CNlmD7mUNRuv4zcBxJgyKfYmBpDvGOCvewno6096p0DVnM"/>
+<div class="relative z-10">
+<h4 class="font-label-md text-label-md text-secondary mb-1">PRO TIP</h4>
+<p class="font-body-md text-body-md text-on-surface">Consider 'Konbini' meals for 1-2 days to save significantly while still eating well.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Comparative Scenarios -->
+<section class="mt-stack-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-md">Explore Your Options</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Budget Option -->
+<div class="bg-white rounded-xl p-stack-md border border-outline-variant hover:border-primary transition-all cursor-pointer">
+<span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full font-label-sm text-label-sm mb-3 inline-block">Option A</span>
+<h3 class="font-headline-md text-headline-md mb-2">The Weekend Warrior</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">2 Days, 1 Night in Tokyo. Staying in a high-rated capsule hotel.</p>
+<div class="text-primary font-bold text-headline-md">$285</div>
+</div>
+<!-- Mid-range Option -->
+<div class="bg-white rounded-xl p-stack-md border border-outline-variant hover:border-primary transition-all cursor-pointer">
+<span class="bg-primary-container text-on-primary-container px-3 py-1 rounded-full font-label-sm text-label-sm mb-3 inline-block">Recommended</span>
+<h3 class="font-headline-md text-headline-md mb-2">Standard Explorer</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">5 Days in Tokyo &amp; Osaka. Business hotels and JR Pass included.</p>
+<div class="text-primary font-bold text-headline-md">$1,150</div>
+</div>
+<!-- Luxury/Dream Option -->
+<div class="bg-white rounded-xl p-stack-md border border-outline-variant hover:border-primary transition-all cursor-pointer">
+<span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full font-label-sm text-label-sm mb-3 inline-block">Option C</span>
+<h3 class="font-headline-md text-headline-md mb-2">The Full Experience</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">7 Days across Japan. Ryokans, Kaiseki dining, and private guides.</p>
+<div class="text-primary font-bold text-headline-md">$2,800+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full bottom-0 bg-surface-container-highest dark:bg-on-surface mt-stack-lg">
+<div class="max-w-container-max mx-auto px-margin-desktop py-stack-lg flex flex-col md:flex-row justify-between items-center md:items-start space-y-6 md:space-y-0">
+<div class="flex flex-col items-center md:items-start">
+<span class="font-headline-sm text-headline-sm text-primary mb-2">VoyageAI</span>
+<p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 VoyageAI Travel Editorial. All rights reserved.</p>
+</div>
+<div class="flex flex-wrap justify-center md:justify-end gap-x-gutter gap-y-2">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors opacity-100 hover:opacity-80" href="#">Privacy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors opacity-100 hover:opacity-80" href="#">Terms</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors opacity-100 hover:opacity-80" href="#">Destinations</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors opacity-100 hover:opacity-80" href="#">Press</a>
+</div>
+</div>
+</footer>
+<script>
+    // Micro-interaction for buttons
+    document.querySelectorAll('button').forEach(button => {
+      button.addEventListener('mousedown', () => {
+        button.style.transform = 'scale(0.98)';
+      });
+      button.addEventListener('mouseup', () => {
+        button.style.transform = 'scale(1)';
+      });
+    });
+  </script>
+</body></html>
