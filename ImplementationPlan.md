@@ -134,6 +134,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ---
 
 ## SPRINT 3 — Orchestrator agent & constraint extraction
+**Status:** DONE (2026-06-18)
 **Goal:** Turn a raw natural-language request into a validated `TripConstraints`, with clarifying-question detection. This is the entry point of the agent pipeline.
 
 **In scope**
@@ -147,9 +148,9 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Out of scope:** delegating to / synthesizing specialist outputs (Sprint 5), the parallel pipeline.
 
 **Acceptance criteria**
-- [ ] Japan example extracts all PRD constraints correctly (test asserts exact object).
-- [ ] Under-specified request returns `clarifications_needed` instead of guessing.
-- [ ] All tests + build green.
+- [x] Japan example extracts all PRD constraints correctly (test asserts exact object).
+- [x] Under-specified request returns `clarifications_needed` instead of guessing.
+- [x] All tests + build green.
 
 ---
 
@@ -319,7 +320,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | Design tokens in Tailwind | ✅ Done | All `modern_editorial_voyager` tokens in `tailwind.config.ts`; Jakarta + Material Symbols loaded. |
 | Domain types + Zod schemas | ✅ Done | 8 schemas in `src/lib/types/`; 28 unit tests covering valid + invalid cases. |
 | Gemini client (mockable) | ✅ Done | `src/lib/gemini/client.ts` + `mock.ts`; retry, timeout, log hook; 15 unit tests. |
-| Orchestrator / constraint extraction | ⬜ Not started | |
+| Orchestrator / constraint extraction | ✅ Done | `OrchestratorAgent.extractConstraints` → `ExtractionResult` union (complete \| needs_clarification); 11 unit tests. `synthesize()` stubbed for Sprint 5. |
 | Destination Research agent | ⬜ Not started | |
 | Logistics agent | ⬜ Not started | |
 | Budget agent | ⬜ Not started | |
@@ -395,7 +396,25 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 - **First thing Sprint 3 should verify:** Run `npm test` + `npm run build` from clean state. Then import `TripConstraintsSchema` from `@/lib/types` and `createMockGeminiClient` from `@/lib/gemini/mock` at the top of the orchestrator file to confirm the module graph resolves before writing any prompt logic.
 
 ### Sprint 3 — Orchestrator & constraint extraction
-- _pending_
+- **Status:** DONE (2026-06-18)
+- **What was built:** The Orchestrator's phase-1 constraint extraction — a few-shot prompt + an injectable agent that turns a raw request into either validated `TripConstraints` or a set of clarifying questions. 11 new tests; 60 total green.
+- **Key files:**
+  - `src/lib/prompts/orchestrator.ts` — `ORCHESTRATOR_SYSTEM_INSTRUCTION` + `buildExtractionPrompt(request)`. Few-shot anchored on the PRD Japan example **and** an under-specified "Plan a trip to Japan." example so the model learns to ask, not guess. Instructs JSON-only output, null for unknown hard fields, currency→USD conversion, conflict flagging.
+  - `src/lib/agents/orchestrator.ts` — `OrchestratorAgent` class (constructor-injected `GeminiClient`), `createOrchestratorAgent()` factory, `ExtractionSchema`/`Extraction` (permissive DTO), `ExtractionResult` union, `PartialConstraints`.
+  - `tests/unit/orchestrator.test.ts` — 11 tests: complete Japan (exact object), factory, currency-default, under-specified → clarifications, deterministic backstop, empty input (no Gemini call), conflicting constraints, synthesize stub throws, prompt builder, ExtractionSchema valid/invalid.
+- **Key design decision (deviation from plan signature):** The plan sketched `extractConstraints(): Promise<TripConstraints>`, but the Sprint 2 `TripConstraintsSchema` **requires** `duration_days`, `cities`, and `budget_usd` — so an under-specified request genuinely cannot be a valid `TripConstraints`. Rather than weaken the locked Sprint 2 schema, `extractConstraints` returns a **discriminated union** `ExtractionResult = { status: "complete"; constraints } | { status: "needs_clarification"; clarifications_needed; partial }`. Callers (Sprint 5 pipeline, Sprint 6 `/api/parse`, Sprint 7 UI) must switch on `result.status`. The LLM call uses the looser `ExtractionSchema` (nullable hard fields); the agent then validates the complete case through `TripConstraintsSchema`.
+  - **Two-layer clarification detection:** the model populates `clarifications_needed`, and the agent adds a **deterministic backstop** — any null `destination`/`duration_days`/`cities`/`budget_usd` always produces a question even if the model forgets. Lists are merged + de-duplicated.
+  - Empty/whitespace input short-circuits to a clarification **without** calling Gemini (saves a token round-trip).
+  - `synthesize(constraints)` is a stub that throws "not implemented until Sprint 5" (typed `Promise<TripState>` so Sprint 5 just fills the body). Note: it uses `void constraints;` to satisfy lint — the project's ESLint is `next/core-web-vitals` and does **not** have the `@typescript-eslint/no-unused-vars` rule registered, so `// eslint-disable-next-line @typescript-eslint/no-unused-vars` is a build error here. Use `void x;` or the base `no-unused-vars` rule instead.
+- **Known issues / TODOs for later sprints:**
+  - Currency conversion is LLM-estimated only (prompt asks for an approximate USD number). Sprint 5 Budget agent owns real normalization.
+  - Off-topic/injection input is only softly handled (model instructed to return nulls + a clarification). Hard guardrails are Sprint 6.
+  - `ExtractionResult.partial` is provided for Sprint 7 UI pre-fill of the constraint-confirmation screen — not yet consumed.
+- **Verification:**
+  - `npm test` → **60 passed (5 files)** — orchestrator.test.ts adds 11.
+  - `npm run lint` → `✔ No ESLint warnings or errors`.
+  - `npm run build` → `✓ Compiled successfully`, zero TS errors.
+- **First thing Sprint 4 should verify:** `npm test` + `npm run build` green from clean. Then note the extraction contract: Sprint 4 specialists receive a **validated `TripConstraints`** (the `complete` branch), not the raw request — import `TripConstraints` from `@/lib/types` and construct agents with an injected `GeminiClient` (mirror `OrchestratorAgent`'s constructor-injection + `createMockGeminiClient` test pattern). Specialists should implement `BaseAgent<TInput, TOutput>` from `@/lib/agents/base`.
 
 ### Sprint 4 — Destination Research & Logistics agents
 - _pending_
