@@ -168,6 +168,70 @@ describe("OrchestratorAgent.extractConstraints — conflicting constraints", () 
   });
 });
 
+describe("OrchestratorAgent.extractConstraints — robustness", () => {
+  it("treats an empty-string city as missing instead of throwing a ZodError", async () => {
+    const withEmptyCity: Extraction = { ...JAPAN_EXTRACTION, cities: [""] };
+    const client = createMockGeminiClient([withEmptyCity]);
+    const orchestrator = new OrchestratorAgent(client);
+
+    const result = await orchestrator.extractConstraints("Trip to Japan, $3000, 5 days");
+
+    expect(result.status).toBe("needs_clarification");
+    if (result.status !== "needs_clarification") throw new Error("expected clarification");
+    expect(result.clarifications_needed.some((q) => /cities|areas/i.test(q))).toBe(true);
+    expect(result.partial.cities).toBeUndefined();
+  });
+
+  it("asks a SINGLE clarification when there is no destination (non-travel input)", async () => {
+    const nonTravel: Extraction = {
+      destination: null,
+      duration_days: null,
+      cities: null,
+      budget_usd: null,
+      currency: null,
+      preferences: [],
+      avoidances: [],
+      travelers: null,
+      pace: null,
+      clarifications_needed: [
+        "That doesn't look like a travel request — what trip can I plan for you?",
+      ],
+    };
+    const client = createMockGeminiClient([nonTravel]);
+    const orchestrator = new OrchestratorAgent(client);
+
+    const result = await orchestrator.extractConstraints("what's the weather tomorrow?");
+
+    expect(result.status).toBe("needs_clarification");
+    if (result.status !== "needs_clarification") throw new Error("expected clarification");
+    // Previously this ballooned to ~5 (one question per missing hard field).
+    expect(result.clarifications_needed).toHaveLength(1);
+  });
+
+  it("falls back to one default question when destination is null and the model gives none", async () => {
+    const blank: Extraction = {
+      destination: null,
+      duration_days: null,
+      cities: null,
+      budget_usd: null,
+      currency: null,
+      preferences: [],
+      avoidances: [],
+      travelers: null,
+      pace: null,
+      clarifications_needed: [],
+    };
+    const client = createMockGeminiClient([blank]);
+    const orchestrator = new OrchestratorAgent(client);
+
+    const result = await orchestrator.extractConstraints("asdf");
+
+    expect(result.status).toBe("needs_clarification");
+    if (result.status !== "needs_clarification") throw new Error("expected clarification");
+    expect(result.clarifications_needed).toHaveLength(1);
+  });
+});
+
 describe("OrchestratorAgent.synthesize — stub", () => {
   it("throws a not-implemented error until Sprint 5", async () => {
     const client = createMockGeminiClient([]);

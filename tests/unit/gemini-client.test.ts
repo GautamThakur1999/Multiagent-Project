@@ -50,6 +50,20 @@ describe("createGeminiClient — success", () => {
     await client.generateStructured("prompt", SimpleSchema);
     expect(logs[0].model).toBe("gemini-2.5-flash-lite");
   });
+
+  it("clears the timeout timer on success so no timer leaks", async () => {
+    vi.useFakeTimers();
+    try {
+      const rawFn = makeRawFn([JSON.stringify(VALID_PAYLOAD)]);
+      const client = createGeminiClient({ apiKey: "test", timeoutMs: 30_000 }, rawFn);
+      const result = await client.generateStructured("prompt", SimpleSchema);
+      expect(result).toEqual(VALID_PAYLOAD);
+      // Before the fix this left a dangling 30s timer on every successful call.
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

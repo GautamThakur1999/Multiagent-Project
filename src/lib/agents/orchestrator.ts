@@ -53,11 +53,18 @@ function dedupe(items: string[]): string[] {
   return Array.from(new Set(items.map((s) => s.trim()).filter(Boolean)));
 }
 
+/** Drops null/empty/whitespace-only city strings. */
+function cleanCities(cities: string[] | null): string[] {
+  return (cities ?? []).map((c) => c.trim()).filter(Boolean);
+}
+
 function buildPartial(ex: Extraction): PartialConstraints {
   const p: PartialConstraints = {};
-  if (ex.destination) p.destination = ex.destination;
+  const destination = ex.destination?.trim();
+  const cities = cleanCities(ex.cities);
+  if (destination) p.destination = destination;
   if (ex.duration_days != null) p.duration_days = ex.duration_days;
-  if (ex.cities && ex.cities.length > 0) p.cities = ex.cities;
+  if (cities.length > 0) p.cities = cities;
   if (ex.budget_usd != null) p.budget_usd = ex.budget_usd;
   if (ex.currency) p.currency = ex.currency;
   if (ex.preferences.length > 0) p.preferences = ex.preferences;
@@ -97,16 +104,34 @@ export class OrchestratorAgent {
     const prompt = buildExtractionPrompt(trimmed);
     const ex = await this.client.generateStructured(prompt, ExtractionSchema);
 
-    // Deterministic backstop: even if the model forgets, missing hard
-    // constraints must always produce a clarifying question.
-    const missing: string[] = [];
-    if (!ex.destination) {
-      missing.push("Which country or destination are you traveling to?");
+    const destination = ex.destination?.trim() ?? "";
+    // Normalize cities so `[]` and `[""]` are treated identically — otherwise an
+    // empty-string city slips past the length check and fails strict validation.
+    const cities = cleanCities(ex.cities);
+
+    // If we can't even identify a destination, the request is too vague or not a
+    // travel request at all. Ask ONE question rather than one per missing field.
+    if (!destination) {
+      const clarifications = dedupe(
+        ex.clarifications_needed.length > 0
+          ? ex.clarifications_needed
+          : [
+              "Which destination would you like to plan a trip to? Tell me the place, rough length, budget, and what you enjoy.",
+            ]
+      );
+      return {
+        status: "needs_clarification",
+        clarifications_needed: clarifications,
+        partial: buildPartial(ex),
+      };
     }
+
+    // Destination known — ask only for the specific hard constraints still missing.
+    const missing: string[] = [];
     if (ex.duration_days == null) {
       missing.push("How many days will your trip be?");
     }
-    if (!ex.cities || ex.cities.length === 0) {
+    if (cities.length === 0) {
       missing.push("Which cities or areas would you like to visit?");
     }
     if (ex.budget_usd == null) {
@@ -124,12 +149,12 @@ export class OrchestratorAgent {
     }
 
     // All hard constraints present and no open questions → validate into the
-    // strict, complete form. Non-null assertions are safe: the checks above
-    // guarantee these are populated when we reach this branch.
-    const constraints = TripConstraintsSchema.parse({
-      destination: ex.destination,
+    // strict, complete form. `safeParse` so an unexpected shape never throws a
+    // raw ZodError out of the orchestrator.
+    const parsed = TripConstraintsSchema.safeParse({
+      destination,
       duration_days: ex.duration_days,
-      cities: ex.cities,
+      cities,
       budget_usd: ex.budget_usd,
       currency: ex.currency ?? "USD",
       preferences: ex.preferences,
@@ -139,7 +164,17 @@ export class OrchestratorAgent {
       clarifications_needed: [],
     });
 
-    return { status: "complete", constraints };
+    if (!parsed.success) {
+      return {
+        status: "needs_clarification",
+        clarifications_needed: [
+          "Some details looked inconsistent — could you restate your destination, trip length, and budget?",
+        ],
+        partial: buildPartial(ex),
+      };
+    }
+
+    return { status: "complete", constraints: parsed.data };
   }
 
   /**

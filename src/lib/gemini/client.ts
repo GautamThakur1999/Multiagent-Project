@@ -31,17 +31,19 @@ export interface GeminiClient {
 }
 
 // Injectable raw generator — used by the real impl and overridable in tests.
+// Receives an AbortSignal so a timed-out request can be cancelled in flight.
 export type RawGenerateFn = (
-  prompt: string
+  prompt: string,
+  signal?: AbortSignal
 ) => Promise<{ text: string; usage?: UsageMetadata }>;
 
 function buildRealRawFn(apiKey: string, model: string): RawGenerateFn {
   const ai = new GoogleGenAI({ apiKey });
-  return async (prompt: string) => {
+  return async (prompt: string, signal?: AbortSignal) => {
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
-      config: { responseMimeType: "application/json" },
+      config: { responseMimeType: "application/json", abortSignal: signal },
     });
     return {
       text: response.text ?? "",
@@ -54,16 +56,26 @@ function buildRealRawFn(apiKey: string, model: string): RawGenerateFn {
   };
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`Gemini request timed out after ${ms}ms`)),
-        ms
-      )
-    ),
-  ]);
+/**
+ * Races `run(signal)` against a timeout. On timeout the AbortSignal fires so the
+ * underlying request is cancelled, and the timer is always cleared in `finally`
+ * so it never leaks past the call (a dangling timer keeps the event loop alive).
+ */
+function withTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  ms: number
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`Gemini request timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([run(controller.signal), timeout]).finally(() =>
+    clearTimeout(timer)
+  );
 }
 
 /**
@@ -92,7 +104,7 @@ export function createGeminiClient(
 
         let raw: { text: string; usage?: UsageMetadata };
         try {
-          raw = await withTimeout(generate(prompt), timeoutMs);
+          raw = await withTimeout((signal) => generate(prompt, signal), timeoutMs);
         } catch (err) {
           const e = err instanceof Error ? err : new Error(String(err));
           const isTimeout = e.message.includes("timed out");
