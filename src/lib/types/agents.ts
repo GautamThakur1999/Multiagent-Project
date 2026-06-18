@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CategorySchema, CrowdLevelSchema, PrioritySchema } from "./itinerary";
 
 export const StayRecommendationSchema = z.object({
   city: z.string().min(1),
@@ -52,3 +53,42 @@ export const ReviewResultSchema = z.object({
   caveats: z.array(z.string()).optional(),
 });
 export type ReviewResult = z.infer<typeof ReviewResultSchema>;
+
+// --- Destination Research agent output (Sprint 4) ---------------------------
+
+export const DestinationRecommendationSchema = z.object({
+  name: z.string().min(1),
+  city: z.string().min(1),
+  category: CategorySchema,
+  neighborhood: z.string().optional(),
+  description: z.string(),
+  priority: PrioritySchema,
+  crowd_level: CrowdLevelSchema,
+  best_time: z.string().optional(),
+  off_peak_tip: z.string().optional(),
+  est_cost_usd: z.number().min(0),
+});
+export type DestinationRecommendation = z.infer<typeof DestinationRecommendationSchema>;
+
+export const DestinationResearchSchema = z.object({
+  recommendations: z.array(DestinationRecommendationSchema).min(1),
+  summary: z.string().optional(),
+});
+export type DestinationResearch = z.infer<typeof DestinationResearchSchema>;
+
+// --- Logistics agent output (Sprint 4) --------------------------------------
+
+export const DaySequenceEntrySchema = z.object({
+  day: z.number().int().positive(),
+  city: z.string().min(1),
+  note: z.string().optional(),
+});
+export type DaySequenceEntry = z.infer<typeof DaySequenceEntrySchema>;
+
+export const LogisticsPlanSchema = z.object({
+  stays: z.array(StayRecommendationSchema).min(1),
+  legs: z.array(LogisticsLegSchema),
+  day_sequence: z.array(DaySequenceEntrySchema).min(1),
+  summary: z.string().optional(),
+});
+export type LogisticsPlan = z.infer<typeof LogisticsPlanSchema>;

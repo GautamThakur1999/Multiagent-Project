@@ -155,6 +155,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ---
 
 ## SPRINT 4 — Destination Research & Logistics agents
+**Status:** DONE (2026-06-18)
 **Goal:** The two "content" specialists, producing grounded recommendations and a feasible movement/stay plan.
 
 **In scope**
@@ -166,9 +167,9 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Out of scope:** budget math, review validation, final merge, live external APIs.
 
 **Acceptance criteria**
-- [ ] Destination agent returns preference-aligned, crowd-aware items for the Japan input.
-- [ ] Logistics agent returns stay split + Shinkansen leg + non-backtracking sequence.
-- [ ] Tests + build green.
+- [x] Destination agent returns preference-aligned, crowd-aware items for the Japan input.
+- [x] Logistics agent returns stay split + Shinkansen leg + non-backtracking sequence.
+- [x] Tests + build green.
 
 ---
 
@@ -321,8 +322,8 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | Domain types + Zod schemas | ✅ Done | 8 schemas in `src/lib/types/`; 28 unit tests covering valid + invalid cases. |
 | Gemini client (mockable) | ✅ Done | `src/lib/gemini/client.ts` + `mock.ts`; retry, timeout, log hook; 15 unit tests. |
 | Orchestrator / constraint extraction | ✅ Done | `OrchestratorAgent.extractConstraints` → `ExtractionResult` union (complete \| needs_clarification); 11 unit tests. `synthesize()` stubbed for Sprint 5. |
-| Destination Research agent | ⬜ Not started | |
-| Logistics agent | ⬜ Not started | |
+| Destination Research agent | ✅ Done | `DestinationResearchAgent` + Japan grounding data; crowd-avoidance reorder; 8 tests. |
+| Logistics agent | ✅ Done | `LogisticsAgent` (stays/legs/day_sequence) + `isNonBacktrackingSequence`; 10 tests. |
 | Budget agent | ⬜ Not started | |
 | Review agent | ⬜ Not started | |
 | Full pipeline (parallel + review loop) | ⬜ Not started | |
@@ -417,7 +418,29 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 - **First thing Sprint 4 should verify:** `npm test` + `npm run build` green from clean. Then note the extraction contract: Sprint 4 specialists receive a **validated `TripConstraints`** (the `complete` branch), not the raw request — import `TripConstraints` from `@/lib/types` and construct agents with an injected `GeminiClient` (mirror `OrchestratorAgent`'s constructor-injection + `createMockGeminiClient` test pattern). Specialists should implement `BaseAgent<TInput, TOutput>` from `@/lib/agents/base`.
 
 ### Sprint 4 — Destination Research & Logistics agents
-- _pending_
+- **Status:** DONE (2026-06-18)
+- **What was built:** The two content specialists + typed Japan grounding data. Both implement `BaseAgent<TripConstraints, TOutput>` with constructor-injected `GeminiClient` (same pattern as the Orchestrator). 27 new tests; 87 total green.
+- **Key files:**
+  - `src/lib/data/japan.ts` — `JAPAN_DATA` (`DestinationData`): 6 neighborhoods + 12 attractions across Tokyo/Kyoto (each with `crowd_level`, `best_time`, `off_peak_tip`, cost, must-do/nice-to-have), inter-city Shinkansen legs (**135 min, ~$95**), 7 intra-city time estimates. Helpers: `getDestinationData(destination)` (case-insensitive, **Japan-only — returns `null` otherwise**) and `formatGroundingForPrompt(data, cities)` (compact text block, filtered to requested cities).
+  - `src/lib/types/agents.ts` — **added** `DestinationRecommendationSchema`/`DestinationResearchSchema` and `DaySequenceEntrySchema`/`LogisticsPlanSchema` (reusing `Category`/`Priority`/`CrowdLevel` enums from `itinerary.ts`). These are the cross-agent output contracts Sprint 5 consumes.
+  - `src/lib/prompts/destinationResearch.ts`, `src/lib/prompts/logistics.ts` — grounded, JSON-only prompts; instruct crowd-favoring + off-peak tips, and the non-backtracking (contiguous city block) rule.
+  - `src/lib/agents/destinationResearch.ts` — `DestinationResearchAgent.run(constraints)`. Exported helpers `avoidsCrowds()`, `sortByCrowdAscending()`. **Behavior:** when avoidances mention crowds, reorders recommendations quietest-first and caps confidence at 0.7 if any high-crowd must-do lacks an `off_peak_tip`.
+  - `src/lib/agents/logistics.ts` — `LogisticsAgent.run(constraints)`. Exported helper `isNonBacktrackingSequence(day_sequence)`. **Behavior:** computes feasibility (sequence contiguity + total nights ≤ duration) and reflects it in confidence (0.9 feasible → ≤0.5 if backtracking/over-nights) rather than throwing.
+  - Tests: `tests/unit/japan-data.test.ts` (9), `tests/unit/destinationResearch.test.ts` (8), `tests/unit/logistics.test.ts` (10).
+- **Decisions / deviations from plan:**
+  - **Destination output is its own typed contract** (`DestinationResearch`), NOT stored in `TripState` yet — `TripState` has no destination field. Sprint 5 should decide whether to add `destination_research?` to `TripStateSchema` or just pass it through the pipeline in-memory when building `draft_itinerary`.
+  - Agents return `AgentResult<T>` (`data` + `confidence` + `citations`). `citations` is `["grounding:Japan"]` when curated data was used, else `["gemini-synthesized"]`.
+  - **Deterministic post-processing** (crowd reorder, feasibility scoring) makes behavior testable with a mocked LLM — the mock returns raw fixtures and the agent's own logic is what the tests assert. Failures from the Gemini client are wrapped in `AgentError(name, cause)`.
+  - Logistics `run(constraints)` takes only `TripConstraints` (the plan allowed "+ destination output if helpful"). Kept the `BaseAgent` single-arg `run` contract clean; Sprint 5 can pass destination data through the prompt if it wants tighter coupling.
+- **Known issues / TODOs for later sprints:**
+  - No budget math, review, or merge yet (Sprint 5). The destination recs and logistics day_sequence are the raw material Sprint 5's `synthesize` turns into `draft_itinerary: ItineraryDay[]`.
+  - `getDestinationData` is Japan-only; any non-Japan request falls back to ungrounded prompts (confidence 0.6). Multi-destination data is a later enhancement.
+  - Currency: costs in data are USD; non-USD handling is the Budget agent's job (Sprint 5).
+- **Verification:**
+  - `npm test` → **87 passed (8 files)** — japan-data (9), destinationResearch (8), logistics (10) added this sprint.
+  - `npm run lint` → `✔ No ESLint warnings or errors`.
+  - `npm run build` → `✓ Compiled successfully`, zero TS errors.
+- **First thing Sprint 5 should verify:** `npm test` + `npm run build` green from clean. Then wire `OrchestratorAgent.synthesize()` (currently throws): construct all three specialists with the **same** injected `GeminiClient`, run Destination + Logistics + Budget via `Promise.all`, and merge into `ItineraryDay[]` using the logistics `day_sequence` (city per day) + destination `recommendations` (slot into morning/afternoon/evening by `time_block`). Reuse `DestinationResearch`/`LogisticsPlan` from `@/lib/types`. Decide where `DestinationResearch` lives in `TripState` (add an optional field or keep in-memory).
 
 ### Sprint 5 — Budget & Review agents + pipeline
 - _pending_
