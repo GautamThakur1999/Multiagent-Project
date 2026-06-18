@@ -174,6 +174,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ---
 
 ## SPRINT 5 — Budget & Review agents + full pipeline assembly
+**Status:** DONE (2026-06-18)
 **Goal:** Complete the backend brain: budget reconciliation, the quality gate, and the `Orchestrator → [Destination, Logistics, Budget in parallel] → Review → (loop)` pipeline producing a final validated itinerary.
 
 **In scope**
@@ -186,11 +187,11 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Out of scope:** HTTP/API layer (Sprint 6), UI.
 
 **Acceptance criteria**
-- [ ] End-to-end (mocked) pipeline produces a Review-approved itinerary for the Japan example.
-- [ ] Specialists run concurrently (assert parallelism, e.g., via timing/mock call order).
-- [ ] Re-plan loop triggers on a forced review failure and is bounded.
-- [ ] Infeasible-budget case returns best-effort + explicit caveat.
-- [ ] Tests + build green.
+- [x] End-to-end (mocked) pipeline produces a Review-approved itinerary for the Japan example.
+- [x] Specialists run concurrently (assert parallelism, e.g., via timing/mock call order).
+- [x] Re-plan loop triggers on a forced review failure and is bounded.
+- [x] Infeasible-budget case returns best-effort + explicit caveat.
+- [x] Tests + build green.
 
 ---
 
@@ -324,9 +325,9 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | Orchestrator / constraint extraction | ✅ Done | `OrchestratorAgent.extractConstraints` → `ExtractionResult` union (complete \| needs_clarification); 11 unit tests. `synthesize()` stubbed for Sprint 5. |
 | Destination Research agent | ✅ Done | `DestinationResearchAgent` + Japan grounding data; crowd-avoidance reorder; 8 tests. |
 | Logistics agent | ✅ Done | `LogisticsAgent` (stays/legs/day_sequence) + `isNonBacktrackingSequence`; 10 tests. |
-| Budget agent | ⬜ Not started | |
-| Review agent | ⬜ Not started | |
-| Full pipeline (parallel + review loop) | ⬜ Not started | |
+| Budget agent | ✅ Done | `BudgetAgent` + deterministic total/within-budget re-derivation; 5 tests. |
+| Review agent | ✅ Done | `ReviewAgent` — **deterministic** 6-check gate (no LLM); 8 tests. |
+| Full pipeline (parallel + review loop) | ✅ Done | `runPipeline` + `buildDraftItinerary`; parallel fan-out, bounded re-plan, partial-failure degradation; 8 tests. `synthesize` wired. |
 | API + SSE | ⬜ Not started | |
 | Landing + Constraint screens | ⬜ Not started | |
 | Progress + Itinerary screens | ⬜ Not started | |
@@ -443,7 +444,27 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 - **First thing Sprint 5 should verify:** `npm test` + `npm run build` green from clean. Then wire `OrchestratorAgent.synthesize()` (currently throws): construct all three specialists with the **same** injected `GeminiClient`, run Destination + Logistics + Budget via `Promise.all`, and merge into `ItineraryDay[]` using the logistics `day_sequence` (city per day) + destination `recommendations` (slot into morning/afternoon/evening by `time_block`). Reuse `DestinationResearch`/`LogisticsPlan` from `@/lib/types`. Decide where `DestinationResearch` lives in `TripState` (add an optional field or keep in-memory).
 
 ### Sprint 5 — Budget & Review agents + pipeline
-- _pending_
+- **Status:** DONE (2026-06-18)
+- **What was built:** The complete backend brain — Budget agent, the Review gate, and the full parallel pipeline wired into `OrchestratorAgent.synthesize`. 21 new tests; **112 total green**.
+- **Key files:**
+  - `src/lib/prompts/budget.ts`, `src/lib/agents/budget.ts` — `BudgetAgent` (BaseAgent<TripConstraints, BudgetBreakdown>). LLM estimates the 4 category costs; the agent then **deterministically re-derives** `total_usd`, `within_budget`, and `overspend_usd` against `budget_usd` (never trusts the model's arithmetic). Adds a USD note when `currency !== "USD"`.
+  - `src/lib/agents/review.ts` — `ReviewAgent.review(input)` returning `ReviewResult`. The PRD's six checks: `fits_duration`, `includes_all_cities`, `within_budget`, `matches_preferences`, `avoids_crowds`, `travel_time_realistic`. Exposes `ReviewInput`.
+  - `src/lib/agents/pipeline.ts` — `runPipeline(constraints, client, options?)`, `buildDraftItinerary(...)`, `buildPipelineAgents(...)`. Parallel fan-out via `Promise.allSettled`, deterministic merge into `ItineraryDay[]`, Review gate, bounded re-plan loop, graceful partial-failure degradation. `PipelineOptions.maxReplans` (default 2).
+  - `src/lib/agents/orchestrator.ts` — `synthesize(constraints, options?)` now delegates to `runPipeline` (the Sprint 3 stub is gone).
+  - Tests: `pipeline.test.ts` (8), `review.test.ts` (8), `budget.test.ts` (5); updated `orchestrator.test.ts` synthesize test (delegation, not stub).
+- **Key design decisions / deviations (read these):**
+  - **Review is a DETERMINISTIC gate, not an LLM call — deliberate deviation from "review.ts (+prompt)".** A code gate can't be fooled by the model grading its own output, and it makes the re-plan loop reproducible/testable. There is **no `prompts/review.ts`**. If a future sprint wants LLM-authored review prose, layer it as enrichment on top of the deterministic verdict — do not let it decide the gate.
+  - **Budget runs from `TripConstraints` only** (+ grounding data), NOT from the Destination/Logistics outputs — required so all three fan out in parallel. It estimates costs independently; the merge/Review reconcile.
+  - **Re-plan currently re-runs the FULL fan-out** (all three specialists) on any failure, bounded by `maxReplans`. True feedback-targeted re-planning (passing failed-check guidance into each agent's prompt) is a **future refinement** — the agents' `run(constraints)` signature doesn't yet take feedback, so re-running with identical inputs only helps when upstream data changes. Noted as a known limitation; the loop structure, bound, and best-effort+caveats delivery are all in place and tested.
+  - **`buildDraftItinerary` is deterministic:** day→city from `logistics.day_sequence`; recs spread across each city's days (must-do first, quietest-first when avoiding crowds); inter-city leg surfaced as a `logistics` item on the transfer day; **every day guaranteed ≥1 item** (fallback "Explore {city}"). Items/day by pace (slow 2 / moderate 3 / fast 4).
+  - **Partial failure:** `Promise.allSettled` + fallbacks — destination fail → empty recs (fallback items), logistics fail → synthesized day_sequence/stays so day-count & cities still hold, budget fail → zeroed breakdown. Each adds a caveat; the pipeline never throws on a single agent failure.
+  - **`TripState` unchanged** — destination recommendations are consumed in-memory by the merge, not stored on `TripState` (no `destination_research` field added). `stay_recommendations`, `logistics_legs`, `budget_breakdown`, `draft_itinerary`/`final_itinerary`, `review_result`, `caveats`, `replan_count` are all populated.
+- **Carried-over quality gaps from the Sprint 4 review (still open, fine for now):** logistics doesn't verify both requested cities are actually planned (Review's `includes_all_cities` now covers this at the gate); `nightsReasonable` heuristic is loose; `isNonBacktrackingSequence` trusts array order (pipeline sorts `day_sequence` by `day` before use, mitigating it).
+- **Verification:**
+  - `npm test` → **112 passed (11 files)** — pipeline (8), review (8), budget (5) added.
+  - `npm run lint` → `✔ No ESLint warnings or errors`.
+  - `npm run build` → `✓ Compiled successfully`, zero TS errors.
+- **First thing Sprint 6 should verify:** `npm test` + `npm run build` green from clean. Then the API contract: `POST /api/parse` wraps `OrchestratorAgent.extractConstraints` → returns the `ExtractionResult` union (switch on `status`: `complete` | `needs_clarification`). `POST /api/plan` wraps `runPipeline` (or `orchestrator.synthesize`) and should stream progress — note that `runPipeline` is currently a single awaited call with no progress events; **Sprint 6 must add an event/callback hook** (e.g., an `onProgress(stage, status)` option threaded into `fanOut`/review) to drive the SSE stream, since the agents don't emit progress yet. Construct the real Gemini client via `createGeminiClient({ apiKey: getEnv().GEMINI_API_KEY })` (server-side only) and inject it.
 
 ### Sprint 6 — API layer, SSE, guardrails
 - _pending_

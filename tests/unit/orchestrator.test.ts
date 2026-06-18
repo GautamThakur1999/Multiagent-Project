@@ -232,24 +232,102 @@ describe("OrchestratorAgent.extractConstraints — robustness", () => {
   });
 });
 
-describe("OrchestratorAgent.synthesize — stub", () => {
-  it("throws a not-implemented error until Sprint 5", async () => {
-    const client = createMockGeminiClient([]);
+describe("OrchestratorAgent.synthesize — delegates to pipeline", () => {
+  it("produces a TripState for a complete set of constraints", async () => {
+    // destination, logistics, budget responses (review is deterministic).
+    const client = createMockGeminiClient([
+      {
+        recommendations: [
+          {
+            name: "Senso-ji",
+            city: "Tokyo",
+            category: "temple",
+            description: "Old temple.",
+            priority: "must-do",
+            crowd_level: "high",
+            off_peak_tip: "Go at dawn.",
+            est_cost_usd: 0,
+          },
+          {
+            name: "Tsukiji",
+            city: "Tokyo",
+            category: "food",
+            description: "Sushi market.",
+            priority: "must-do",
+            crowd_level: "medium",
+            est_cost_usd: 25,
+          },
+          {
+            name: "Fushimi Inari",
+            city: "Kyoto",
+            category: "temple",
+            description: "Torii gates.",
+            priority: "must-do",
+            crowd_level: "high",
+            off_peak_tip: "Arrive at dawn.",
+            est_cost_usd: 0,
+          },
+        ],
+      },
+      {
+        stays: [
+          {
+            city: "Tokyo",
+            neighborhood: "Yanaka",
+            rationale: "Quiet.",
+            price_range_usd_per_night: { min: 80, max: 150 },
+            nights: 2,
+          },
+          {
+            city: "Kyoto",
+            neighborhood: "Ohara",
+            rationale: "Quiet.",
+            price_range_usd_per_night: { min: 90, max: 170 },
+            nights: 2,
+          },
+        ],
+        legs: [
+          {
+            from: "Tokyo",
+            to: "Kyoto",
+            mode: "Shinkansen",
+            duration_minutes: 135,
+            est_cost_usd: 95,
+            leg_type: "inter-city",
+          },
+        ],
+        day_sequence: [
+          { day: 1, city: "Tokyo" },
+          { day: 2, city: "Tokyo" },
+          { day: 3, city: "Kyoto" },
+        ],
+      },
+      {
+        stay_usd: 500,
+        transport_usd: 190,
+        food_usd: 300,
+        activities_usd: 60,
+        total_usd: 0,
+        within_budget: true,
+      },
+    ]);
     const orchestrator = new OrchestratorAgent(client);
-    await expect(
-      orchestrator.synthesize({
-        destination: "Japan",
-        duration_days: 5,
-        cities: ["Tokyo", "Kyoto"],
-        budget_usd: 3000,
-        currency: "USD",
-        preferences: ["food"],
-        avoidances: ["crowds"],
-        travelers: 1,
-        pace: "moderate",
-        clarifications_needed: [],
-      })
-    ).rejects.toThrow(/Sprint 5/);
+
+    const state = await orchestrator.synthesize({
+      destination: "Japan",
+      duration_days: 3,
+      cities: ["Tokyo", "Kyoto"],
+      budget_usd: 3000,
+      currency: "USD",
+      preferences: ["food", "temples"],
+      avoidances: ["crowds"],
+      travelers: 1,
+      pace: "moderate",
+      clarifications_needed: [],
+    });
+
+    expect(state.final_itinerary).toHaveLength(3);
+    expect(state.review_result?.overall).toBe("pass");
   });
 });
 

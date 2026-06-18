@@ -7,6 +7,7 @@ import {
   type TripState,
 } from "@/lib/types";
 import { buildExtractionPrompt } from "@/lib/prompts/orchestrator";
+import { runPipeline, type PipelineOptions } from "./pipeline";
 
 /**
  * Permissive schema for the raw LLM extraction. Hard constraints are nullable so
@@ -178,16 +179,16 @@ export class OrchestratorAgent {
   }
 
   /**
-   * TODO(Sprint 5): Full synthesis. Runs the Destination, Logistics, and Budget
-   * agents in parallel, merges their outputs into a draft itinerary, runs the
-   * Review agent, and loops the re-plan on failure (bounded). Wired in Sprint 5
-   * — see ImplementationPlan.md §"SPRINT 5".
+   * Full synthesis: runs the Destination, Logistics, and Budget agents in
+   * parallel, merges their outputs into a draft itinerary, runs the Review gate,
+   * and loops the re-plan on failure (bounded) before delivering a best-effort
+   * plan with caveats. Delegates to `runPipeline` (see `pipeline.ts`).
    */
-  async synthesize(constraints: TripConstraints): Promise<TripState> {
-    void constraints; // consumed in Sprint 5; referenced now to satisfy lint
-    throw new Error(
-      "OrchestratorAgent.synthesize() is not implemented until Sprint 5."
-    );
+  async synthesize(
+    constraints: TripConstraints,
+    options?: PipelineOptions
+  ): Promise<TripState> {
+    return runPipeline(constraints, this.client, options);
   }
 }
 
