@@ -196,6 +196,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ---
 
 ## SPRINT 6 — API layer, SSE streaming, caching & guardrails
+**Status:** DONE (2026-06-19)
 **Goal:** Expose the pipeline over HTTP with a clean contract the frontend can consume, including live progress streaming.
 
 **In scope**
@@ -213,11 +214,11 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Out of scope:** any React UI.
 
 **Acceptance criteria**
-- [ ] `POST /api/parse` returns correct constraints for the Japan example (integration test).
-- [ ] `POST /api/plan` streams ordered progress events then a final itinerary.
-- [ ] Off-topic/injection input is rejected with a clean error.
-- [ ] API contract written into the handover.
-- [ ] Tests + build green.
+- [x] `POST /api/parse` returns correct constraints for the Japan example (integration test).
+- [x] `POST /api/plan` streams ordered progress events then a final itinerary.
+- [x] Off-topic/injection input is rejected with a clean error.
+- [x] API contract written into the handover.
+- [x] Tests + build green.
 
 ---
 
@@ -328,7 +329,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | Budget agent | ✅ Done | `BudgetAgent` + deterministic total/within-budget re-derivation; 5 tests. |
 | Review agent | ✅ Done | `ReviewAgent` — **deterministic** 6-check gate (no LLM); 8 tests. |
 | Full pipeline (parallel + review loop) | ✅ Done | `runPipeline` + `buildDraftItinerary`; parallel fan-out, bounded re-plan, partial-failure degradation; 8 tests. `synthesize` wired. |
-| API + SSE | ⬜ Not started | |
+| API + SSE | ✅ Done | `POST /api/parse` + `POST /api/plan` (SSE); guardrails, destination cache, cost/latency logging; 28 tests. |
 | Landing + Constraint screens | ⬜ Not started | |
 | Progress + Itinerary screens | ⬜ Not started | |
 | Stay/Logistics + adjustment + edit/export | ⬜ Not started | |
@@ -467,7 +468,52 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 - **First thing Sprint 6 should verify:** `npm test` + `npm run build` green from clean. Then the API contract: `POST /api/parse` wraps `OrchestratorAgent.extractConstraints` → returns the `ExtractionResult` union (switch on `status`: `complete` | `needs_clarification`). `POST /api/plan` wraps `runPipeline` (or `orchestrator.synthesize`) and should stream progress — note that `runPipeline` is currently a single awaited call with no progress events; **Sprint 6 must add an event/callback hook** (e.g., an `onProgress(stage, status)` option threaded into `fanOut`/review) to drive the SSE stream, since the agents don't emit progress yet. Construct the real Gemini client via `createGeminiClient({ apiKey: getEnv().GEMINI_API_KEY })` (server-side only) and inject it.
 
 ### Sprint 6 — API layer, SSE, guardrails
-- _pending_
+- **Status:** DONE (2026-06-19)
+- **What was built:** The HTTP layer over the Sprint 5 pipeline — two route handlers, an HTTP-independent service core (so logic is unit-tested without Next), input guardrails, a destination-research cache, and cost/latency logging. `pipeline.ts` was extended with a progress hook + cache option. 28 new tests; **140 total green**.
+- **Key files:**
+  - `app/api/parse/route.ts` — `POST /api/parse`. Parses JSON body, calls `handleParse`, logs latency. Node runtime, `force-dynamic`.
+  - `app/api/plan/route.ts` — `POST /api/plan`. Validates body, opens a `ReadableStream` (SSE), drives `streamPlan`, emits frames via `formatSSE`. Headers: `text/event-stream`, `no-cache`.
+  - `src/lib/api/schemas.ts` — `ParseRequestSchema` `{ request: string }`, `PlanRequestSchema` `{ constraints: TripConstraints }`, `ApiError`.
+  - `src/lib/api/guardrails.ts` — `checkRequestGuardrails`: length bounds (3–2000 chars) + prompt-injection patterns. Conservative (vague-but-real requests pass; the orchestrator's clarification flow handles "not enough info").
+  - `src/lib/api/parse.ts` — `handleParse(body, client)` → `{ status, body: ExtractionResult | ApiError }`. HTTP-independent, client-injected.
+  - `src/lib/api/plan.ts` — `validatePlanBody`, `streamPlan(constraints, client, emit, options)`, `formatSSE`, and the `PlanEvent` union. HTTP-independent.
+  - `src/lib/api/deps.ts` — **server-only** wiring: `buildGeminiClient()` (real client + `logLLMUsage`), `getDestinationCache()` (process-wide singleton).
+  - `src/lib/agents/destinationCache.ts` — `DestinationCache`, `destinationCacheKey` (order-insensitive over cities/prefs/avoidances; ignores budget/duration), `createInMemoryDestinationCache`, `CachingDestinationAgent` (wraps the destination agent; hit → no LLM call, `citations:["cache"]`).
+  - `src/lib/logging.ts` — `estimateCostUsd` (Flash Lite: $0.10/1M in, $0.40/1M out), `logLLMUsage` (`onLog` hook), `logRequestLatency`.
+  - `src/lib/agents/pipeline.ts` — added `PipelineStage`, `ProgressEvent`, `ProgressHook`; `runPipeline` now accepts `{ onProgress, destinationCache }`; `buildPipelineAgents(client, cache?)` wraps destination with `CachingDestinationAgent` when a cache is given.
+  - Tests: `api-parse.test.ts` (6), `api-plan.test.ts` (6), `guardrails.test.ts` (5), `destinationCache.test.ts` (6), `logging.test.ts` (5).
+- **Decisions / deviations:**
+  - **Logic lives in `src/lib/api/*` (HTTP-independent), route handlers are thin.** Tests exercise `handleParse`/`streamPlan` with a **mocked Gemini client** — the `route.ts` files (which build the real client from env) are not unit-tested (they need env + Next runtime; covered by Playwright in Sprint 8/10).
+  - **`/api/plan` body is `{ constraints }`, NOT a raw request.** The frontend flow is: `POST /api/parse` (raw text → constraints, with a confirmation step) → `POST /api/plan` (confirmed constraints → streamed itinerary). This keeps planning deterministic and lets the user edit constraints before the expensive call.
+  - **Re-plan `maxReplans`** is not exposed via the HTTP body (uses the pipeline default of 2). `streamPlan` accepts it for tests.
+  - Destination cache is **in-memory, process-wide** (resets on redeploy) — fine for v1 per PRD (no DB). It only caches destination research (the cacheable, taste-keyed part), not whole plans.
+- **Known issues / TODOs:** SSE has no heartbeat/keep-alive ping (long plans behind some proxies could idle-timeout — revisit in Sprint 10 if needed); cancellation (client disconnect) isn't wired to abort the pipeline.
+
+#### API CONTRACT (for Sprint 7–9 frontend)
+
+**`POST /api/parse`** — natural language → constraints.
+- Request: `{ "request": string }` (3–2000 chars).
+- `200` → `ExtractionResult` (discriminated union on `status`):
+  - `{ "status": "complete", "constraints": TripConstraints }`
+  - `{ "status": "needs_clarification", "clarifications_needed": string[], "partial": Partial<TripConstraints> }`
+- Errors (JSON `ApiError` = `{ error, message, details? }`): `400 invalid_json` · `400 invalid_request` (bad body) · `400 empty_request` · `400 request_too_long` · `422 unsupported_request` (injection/off-topic) · `502 upstream_error` (model failed) · `500 server_error` (e.g. missing API key).
+- `TripConstraints` = `{ destination, duration_days, cities[], budget_usd, currency, preferences[], avoidances[], travelers, pace, clarifications_needed[] }`.
+
+**`POST /api/plan`** — confirmed constraints → streamed itinerary (SSE).
+- Request: `{ "constraints": TripConstraints }`. Invalid → `400 invalid_request` (plain JSON, before the stream opens).
+- Response: `200`, `Content-Type: text/event-stream`. Frames are `event: <type>\ndata: <json>\n\n`:
+  - `event: progress` → `{ stage: "orchestrator"|"destination"|"logistics"|"budget"|"review", status: "started"|"done", detail?: string }`. Ordered: `orchestrator:started` → the three specialists `started` (parallel) → their `done` → `review:started`/`done` → `orchestrator:done`. A re-plan repeats the specialist+review group (so a `stage` can appear more than once).
+  - `event: itinerary` (terminal) → `TripState` = `{ constraints, stay_recommendations[], logistics_legs[], budget_breakdown, draft_itinerary: ItineraryDay[], final_itinerary: ItineraryDay[], review_result, has_caveats, caveats[], replan_count }`.
+  - `event: error` → `ApiError` (only on unexpected pipeline throw; per-agent failures degrade gracefully and still produce an `itinerary` with `caveats`).
+- `ItineraryDay` = `{ day, city, date_label?, theme?, items: ItineraryItem[] }`; `ItineraryItem` = `{ title, description, category: "food"|"temple"|"experience"|"logistics", priority: "must-do"|"nice-to-have", est_cost_usd, time_block: "morning"|"afternoon"|"evening", location?, crowd_level?, tips? }`.
+- `BudgetBreakdown` = `{ stay_usd, transport_usd, food_usd, activities_usd, total_usd, within_budget, overspend_usd?, cheaper_alternatives?, notes? }`.
+- `ReviewResult` = `{ overall: "pass"|"fail", checks: { check, status: "pass"|"fail"|"warning", reason, suggested_fix? }[], caveats?: string[] }`.
+
+- **Verification:**
+  - `npm test` → **140 passed (16 files)** — added parse (6), plan/SSE (6), guardrails (5), cache (6), logging (5).
+  - `npm run lint` → `✔ No ESLint warnings or errors`.
+  - `npm run build` → `✓ Compiled successfully`; `/api/parse` and `/api/plan` registered as dynamic (ƒ) routes.
+- **First thing Sprint 7 should verify:** `npm test` + `npm run build` green from clean. Then build the Landing + Constraint-Confirmation screens against the contract above: submit → `POST /api/parse`, branch on `result.status` (`complete` → confirmation screen pre-filled from `constraints`; `needs_clarification` → show `clarifications_needed` + `partial`). Carry the confirmed `TripConstraints` into the plan step (Sprint 8 consumes `POST /api/plan`). Client-side `fetch` to `/api/parse` returns JSON; the SSE stream is Sprint 8. Match `modern_editorial_voyager/DESIGN.md` tokens; rebuild the stitch exports as React (don't embed raw HTML).
 
 ### Sprint 7 — Frontend foundation + Landing & Constraint screens
 - _pending_

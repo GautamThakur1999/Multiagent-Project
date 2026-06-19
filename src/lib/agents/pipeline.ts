@@ -18,8 +18,27 @@ import { DestinationResearchAgent, avoidsCrowds } from "./destinationResearch";
 import { LogisticsAgent } from "./logistics";
 import { BudgetAgent } from "./budget";
 import { ReviewAgent } from "./review";
+import type { BaseAgent } from "./base";
+import { CachingDestinationAgent, type DestinationCache } from "./destinationCache";
 
 const TIME_BLOCKS: TimeBlock[] = ["morning", "afternoon", "evening"];
+
+/** Stages surfaced to the progress stream (PRD "agents working" screen). */
+export type PipelineStage =
+  | "orchestrator"
+  | "destination"
+  | "logistics"
+  | "budget"
+  | "review";
+
+export interface ProgressEvent {
+  stage: PipelineStage;
+  status: "started" | "done";
+  /** Optional human-readable detail, e.g. "unavailable" on degraded agents. */
+  detail?: string;
+}
+
+export type ProgressHook = (event: ProgressEvent) => void;
 
 function itemsPerDayForPace(pace: TripConstraints["pace"]): number {
   return pace === "slow" ? 2 : pace === "fast" ? 4 : 3;
@@ -174,15 +193,19 @@ export function buildDraftItinerary(
 // --- Parallel fan-out with graceful degradation ----------------------------
 
 interface PipelineAgents {
-  destination: DestinationResearchAgent;
-  logistics: LogisticsAgent;
-  budget: BudgetAgent;
+  destination: BaseAgent<TripConstraints, DestinationResearch>;
+  logistics: BaseAgent<TripConstraints, LogisticsPlan>;
+  budget: BaseAgent<TripConstraints, BudgetBreakdown>;
   review: ReviewAgent;
 }
 
-export function buildPipelineAgents(client: GeminiClient): PipelineAgents {
+export function buildPipelineAgents(
+  client: GeminiClient,
+  cache?: DestinationCache
+): PipelineAgents {
+  const destination = new DestinationResearchAgent(client);
   return {
-    destination: new DestinationResearchAgent(client),
+    destination: cache ? new CachingDestinationAgent(destination, cache) : destination,
     logistics: new LogisticsAgent(client),
     budget: new BudgetAgent(client),
     review: new ReviewAgent(),
@@ -246,12 +269,29 @@ interface FanOutResult {
 /** Runs the three specialists concurrently, degrading gracefully on any failure. */
 async function fanOut(
   constraints: TripConstraints,
-  agents: PipelineAgents
+  agents: PipelineAgents,
+  onProgress?: ProgressHook
 ): Promise<FanOutResult> {
+  // Emits `started` as each agent is kicked off and `done` as it settles, so the
+  // three overlap on the progress stream rather than appearing sequential.
+  const launch = <T>(stage: PipelineStage, run: Promise<T>): Promise<T> => {
+    onProgress?.({ stage, status: "started" });
+    return run.then(
+      (value) => {
+        onProgress?.({ stage, status: "done" });
+        return value;
+      },
+      (err) => {
+        onProgress?.({ stage, status: "done", detail: "unavailable" });
+        throw err;
+      }
+    );
+  };
+
   const [dRes, lRes, bRes] = await Promise.allSettled([
-    agents.destination.run(constraints),
-    agents.logistics.run(constraints),
-    agents.budget.run(constraints),
+    launch("destination", agents.destination.run(constraints)),
+    launch("logistics", agents.logistics.run(constraints)),
+    launch("budget", agents.budget.run(constraints)),
   ]);
 
   const caveats: string[] = [];
@@ -288,6 +328,10 @@ async function fanOut(
 export interface PipelineOptions {
   /** Max re-plan attempts after the first pass (PRD: bounded, default 2). */
   maxReplans?: number;
+  /** Progress callback driving the SSE "agents working" stream (Sprint 6). */
+  onProgress?: ProgressHook;
+  /** Cache for destination research, keyed by (destination, cities, prefs, avoidances). */
+  destinationCache?: DestinationCache;
 }
 
 /**
@@ -302,35 +346,37 @@ export async function runPipeline(
   options: PipelineOptions = {}
 ): Promise<TripState> {
   const maxReplans = options.maxReplans ?? 2;
-  const agents = buildPipelineAgents(client);
+  const onProgress = options.onProgress;
+  const agents = buildPipelineAgents(client, options.destinationCache);
 
   const caveats: string[] = [];
   let replanCount = 0;
 
-  let fan = await fanOut(constraints, agents);
+  onProgress?.({ stage: "orchestrator", status: "started" });
+
+  const runReview = (itinerary: ItineraryDay[], budget: BudgetBreakdown, logistics: LogisticsPlan) => {
+    onProgress?.({ stage: "review", status: "started" });
+    const result = agents.review.review({ constraints, itinerary, budget, logistics });
+    onProgress?.({ stage: "review", status: "done" });
+    return result;
+  };
+
+  let fan = await fanOut(constraints, agents, onProgress);
   caveats.push(...fan.caveats);
   let itinerary = buildDraftItinerary(constraints, fan.destination, fan.logistics);
-  let review = agents.review.review({
-    constraints,
-    itinerary,
-    budget: fan.budget,
-    logistics: fan.logistics,
-  });
+  let review = runReview(itinerary, fan.budget, fan.logistics);
 
   while (review.overall === "fail" && replanCount < maxReplans) {
     replanCount++;
     // Re-plan: re-run the full fan-out (feedback-targeted re-planning is a
     // future refinement — see handover).
-    fan = await fanOut(constraints, agents);
+    fan = await fanOut(constraints, agents, onProgress);
     caveats.push(...fan.caveats);
     itinerary = buildDraftItinerary(constraints, fan.destination, fan.logistics);
-    review = agents.review.review({
-      constraints,
-      itinerary,
-      budget: fan.budget,
-      logistics: fan.logistics,
-    });
+    review = runReview(itinerary, fan.budget, fan.logistics);
   }
+
+  onProgress?.({ stage: "orchestrator", status: "done" });
 
   if (review.overall === "fail") {
     caveats.push(
