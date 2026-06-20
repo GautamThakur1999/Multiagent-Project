@@ -12,8 +12,14 @@ const EXAMPLES = [
   "Nordic design tour through Copenhagen",
 ];
 
-export function LandingHero({ onSubmit }: { onSubmit: (request: string) => void }) {
-  const [value, setValue] = useState("");
+export function LandingHero({
+  onSubmit,
+  initialValue = "",
+}: {
+  onSubmit: (request: string) => void;
+  initialValue?: string;
+}) {
+  const [value, setValue] = useState(initialValue);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();

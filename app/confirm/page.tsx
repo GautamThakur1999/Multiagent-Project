@@ -23,6 +23,7 @@ type View =
 export default function ConfirmPage() {
   const { request, setConstraints } = usePlan();
   const router = useRouter();
+  const goHome = () => router.push("/");
   const [view, setView] = useState<View>({ kind: "loading" });
   const [edited, setEdited] = useState<TripConstraints | null>(null);
 
@@ -71,7 +72,7 @@ export default function ConfirmPage() {
 
       <Container className="z-10 max-w-4xl">
         {view.kind === "empty" ? (
-          <EmptyState />
+          <EmptyState onHome={goHome} />
         ) : (
           <>
             <header className="mb-stack-lg text-center">
@@ -88,18 +89,16 @@ export default function ConfirmPage() {
             <div className="rounded-3xl border border-outline-variant/50 bg-surface-container-lowest/70 p-6 shadow-ambient backdrop-blur md:p-10">
               {view.kind === "loading" && <LoadingState />}
 
-              {view.kind === "error" && <ErrorState message={view.message} />}
+              {view.kind === "error" && <ErrorState message={view.message} onHome={goHome} />}
 
               {view.kind === "clarify" && (
                 <>
                   <ClarificationPanel clarifications={view.clarifications} partial={view.partial} />
                   <div className="mt-8 flex justify-center">
-                    <Link href="/">
-                      <Button variant="secondary" size="lg">
-                        Refine my request
-                        <Icon name="edit" />
-                      </Button>
-                    </Link>
+                    <Button variant="secondary" size="lg" onClick={goHome}>
+                      Refine my request
+                      <Icon name="edit" />
+                    </Button>
                   </div>
                 </>
               )}
@@ -139,7 +138,7 @@ export default function ConfirmPage() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ onHome }: { onHome: () => void }) {
   return (
     <div className="py-24 text-center">
       <Icon name="travel_explore" className="text-[48px] text-primary" />
@@ -148,11 +147,9 @@ function EmptyState() {
         Tell us where you want to go and what you love.
       </p>
       <div className="mt-6">
-        <Link href="/">
-          <Button variant="primary" size="lg">
-            Describe my trip
-          </Button>
-        </Link>
+        <Button variant="primary" size="lg" onClick={onHome}>
+          Describe my trip
+        </Button>
       </div>
     </div>
   );
@@ -167,15 +164,15 @@ function LoadingState() {
   );
 }
 
-function ErrorState({ message }: { message: string }) {
+function ErrorState({ message, onHome }: { message: string; onHome: () => void }) {
   return (
     <div className="py-12 text-center">
       <Icon name="error" className="text-[40px] text-error" />
       <p className="mt-3 text-body-md text-on-surface">{message}</p>
       <div className="mt-6">
-        <Link href="/">
-          <Button variant="primary">Try again</Button>
-        </Link>
+        <Button variant="primary" onClick={onHome}>
+          Try again
+        </Button>
       </div>
     </div>
   );

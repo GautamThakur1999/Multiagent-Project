@@ -44,8 +44,8 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ```
 / (working dir)
 ├── app/                        # Next.js App Router (routes + pages)
-│   ├── api/                    # Route handlers (Sprint 6)
-│   ├── (screens)/              # UI routes (Sprints 7–9)
+│   ├── api/{parse,plan}/       # Route handlers — /api/parse, /api/plan (SSE) (Sprint 6)
+│   ├── confirm/  plan/         # UI routes (Sprints 7–9); page.tsx = Landing
 │   └── layout.tsx, globals.css
 ├── src/
 │   ├── lib/
@@ -53,8 +53,10 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 │   │   ├── gemini/             # Gemini client wrapper, structured-output helper (Sprint 2)
 │   │   ├── types/              # TripConstraints, TripState, Itinerary, etc. (Sprint 2)
 │   │   ├── prompts/            # Prompt templates per agent (Sprints 3–5)
-│   │   └── data/               # Sample/grounding data (Sprints 4–5)
-│   └── components/             # Shared React UI components (Sprint 7+)
+│   │   ├── data/               # Sample/grounding data (Sprints 4–5)
+│   │   ├── api/                # HTTP-independent handlers + guardrails (Sprint 6)
+│   │   └── env.ts, logging.ts, planClient.ts
+│   └── components/             # Shared React UI + PlanProvider (Sprint 7+)
 ├── tests/                      # Vitest + Playwright
 ├── PRD_AI_Travel_Planner.md
 ├── ImplementationPlan.md       # THIS FILE — update every sprint

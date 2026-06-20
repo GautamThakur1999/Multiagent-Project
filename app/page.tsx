@@ -7,13 +7,14 @@ import { usePlan } from "@/components/PlanProvider";
 
 export default function LandingPage() {
   const router = useRouter();
-  const { setRequest } = usePlan();
+  const { request, setRequest } = usePlan();
 
   return (
     <main>
       <LandingHero
-        onSubmit={(request) => {
-          setRequest(request);
+        initialValue={request}
+        onSubmit={(value) => {
+          setRequest(value);
           router.push("/confirm");
         }}
       />

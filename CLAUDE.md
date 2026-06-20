@@ -16,7 +16,8 @@ AI Travel Planner — a natural-language travel request becomes a budget-aware, 
 - v1 is stateless server-side; saved trips → `localStorage`. No DB.
 
 ## Layout
-- `app/` routes + `app/api/` handlers · `src/lib/{agents,gemini,types,prompts,data}` · `src/components` · `tests/`
+- `app/` routes (`/`, `/confirm`, `/plan`) + `app/api/` handlers (`parse`, `plan`-SSE) · `src/lib/{agents,gemini,types,prompts,data,api}` (+ `env`, `logging`, `planClient`) · `src/components` (+ `PlanProvider`) · `tests/`
+- **Flow:** Landing → `POST /api/parse` → Confirm (edit constraints) → `POST /api/plan` (SSE) → Plan. API contract lives in the Sprint 6 handover of `ImplementationPlan.md`.
 
 ## Commands
 - `npm run dev` · `npm run build` · `npm run lint` · `npm test` (Vitest) · `npm run test:e2e` (Playwright)

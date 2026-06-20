@@ -34,20 +34,46 @@ npm run dev                  # http://localhost:3000
 | `npm test` | Vitest (unit/integration) |
 | `npm run test:e2e` | Playwright (E2E) — boots the dev server automatically |
 
+## HTTP API & request flow
+
+The UI talks to two route handlers (full contract in the Sprint 6 handover of
+[`ImplementationPlan.md`](./ImplementationPlan.md)):
+
+```
+Landing ( / )  ──submit──▶  POST /api/parse   { request }      ──▶ ExtractionResult
+                                                                    (complete | needs_clarification)
+Confirm (/confirm) ─confirm─▶  POST /api/plan  { constraints }  ──▶ SSE: progress events → final itinerary
+Plan    (/plan)  ◀── renders the streamed TripState (progress + itinerary land in Sprint 8)
+```
+
+- `POST /api/parse` → `{ request: string }` → `ExtractionResult` (or a structured `ApiError`).
+- `POST /api/plan` → `{ constraints: TripConstraints }` → `text/event-stream` of
+  `progress` events (orchestrator + the 3 parallel specialists + review) then a terminal `itinerary` event.
+
 ## Project structure
 
 ```
-app/                  Next.js App Router (routes + pages)
-  api/                Route handlers (Sprint 6)
+app/                  Next.js App Router
+  page.tsx            Landing screen
+  confirm/            Constraint-confirmation screen (calls /api/parse)
+  plan/               Plan screen (Sprint 8: progress + itinerary)
+  api/
+    parse/route.ts    POST /api/parse
+    plan/route.ts     POST /api/plan (SSE)
 src/
   lib/
-    agents/           Orchestrator + specialists + Review (Sprints 2–5)
-    gemini/           Gemini client wrapper (Sprint 2)
-    types/            Domain types + Zod schemas (Sprint 2)
-    prompts/          Per-agent prompt templates (Sprints 3–5)
-    data/             Sample grounding data (Sprints 4–5)
-  components/         Shared React UI (Sprint 7+)
+    agents/           Orchestrator + specialists + Review + pipeline + cache
+    gemini/           Gemini client wrapper (+ mock)
+    types/            Domain types + Zod schemas
+    prompts/          Per-agent prompt templates
+    data/             Sample grounding data (Japan)
+    api/              HTTP-independent handlers (parse, plan, guardrails, schemas, deps)
+    env.ts · logging.ts · planClient.ts
+  components/         Shared React UI (Button, Card, ConstraintSummary, …) + PlanProvider
 tests/
-  unit/               Vitest
-  e2e/                Playwright
+  unit/               Vitest (mocked Gemini — no live API calls)
+  e2e/                Playwright (stubs /api/parse)
 ```
+
+> **Status:** Sprints 1–7 complete (full multi-agent backend + HTTP API + Landing/Confirm screens).
+> See [`ImplementationPlan.md`](./ImplementationPlan.md) for per-sprint progress and handovers.
