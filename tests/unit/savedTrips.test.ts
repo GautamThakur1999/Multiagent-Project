@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { saveTrip, listSavedTrips } from "@/lib/savedTrips";
+import { saveTrip, listSavedTrips, deleteTrip } from "@/lib/savedTrips";
 import type { TripState } from "@/lib/types";
 
 function trip(destination: string, days: number): TripState {
@@ -36,5 +36,14 @@ describe("savedTrips", () => {
     expect(all).toHaveLength(2);
     expect(all[0].title).toBe("7 days in Italy");
     expect(all[1].title).toBe("5 days in Japan");
+  });
+
+  it("deletes a trip by id", () => {
+    const a = saveTrip(trip("Japan", 5));
+    saveTrip(trip("Italy", 7));
+    deleteTrip(a.id);
+    const all = listSavedTrips();
+    expect(all).toHaveLength(1);
+    expect(all[0].title).toBe("7 days in Italy");
   });
 });

@@ -1,37 +1,45 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { usePlan } from "@/components/PlanProvider";
 import { streamPlanRequest } from "@/lib/planClient";
+import { decodeTripState } from "@/lib/shareLink";
 import { PlanProgress } from "@/components/PlanProgress";
 import { ItineraryView } from "@/components/ItineraryView";
+import { RequestAdjustment } from "@/components/RequestAdjustment";
 import { Container } from "@/components/Layout";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import type { ProgressEvent } from "@/lib/agents/pipeline";
 import type { TripState } from "@/lib/types";
 
-export default function PlanPage() {
-  const { constraints } = usePlan();
+function PlanInner() {
+  const { constraints, setConstraints } = usePlan();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sharedParam = searchParams.get("shared");
+  const sharedState = useMemo(() => (sharedParam ? decodeTripState(sharedParam) : null), [sharedParam]);
+
   const started = useRef(false);
   const [events, setEvents] = useState<ProgressEvent[]>([]);
-  const [tripState, setTripState] = useState<TripState | null>(null);
+  const [result, setResult] = useState<TripState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showAnyway, setShowAnyway] = useState(false);
 
   useEffect(() => {
-    // Start the stream once, after constraints are available. The ref guard keeps
-    // React 18 StrictMode (dev) from firing a second, duplicate plan request.
-    if (started.current || !constraints) return;
+    if (sharedState || started.current || !constraints) return;
     started.current = true;
     void streamPlanRequest(constraints, {
       onProgress: (e) => setEvents((prev) => [...prev, e]),
-      onItinerary: (s) => setTripState(s),
+      onItinerary: (s) => setResult(s),
       onError: (err) => setError(err.message),
     });
-  }, [constraints]);
+  }, [constraints, sharedState]);
+
+  // A shared link renders the encoded itinerary directly (no streaming).
+  if (sharedState) return <ItineraryView state={sharedState} />;
 
   if (!constraints) {
     return (
@@ -43,10 +51,11 @@ export default function PlanPage() {
             Start by describing the trip you&apos;d like.
           </p>
           <div className="mt-6">
-            <Link href="/">
-              <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-8 py-4 text-base font-semibold text-on-secondary">
-                Describe my trip
-              </span>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-full bg-secondary px-8 py-4 text-base font-semibold text-on-secondary"
+            >
+              Describe my trip
             </Link>
           </div>
         </Container>
@@ -74,9 +83,35 @@ export default function PlanPage() {
     );
   }
 
-  if (tripState) {
-    return <ItineraryView state={tripState} />;
+  if (result) {
+    // Infeasible / failed review → adjustment screen (unless the user opts to see it anyway).
+    if (result.review_result?.overall === "fail" && !showAnyway) {
+      return (
+        <RequestAdjustment
+          state={result}
+          onEditConstraints={() => router.push("/confirm")}
+          onIncreaseBudget={(amount) => {
+            started.current = false;
+            setEvents([]);
+            setResult(null);
+            setError(null);
+            setShowAnyway(false);
+            setConstraints({ ...constraints, budget_usd: amount });
+          }}
+          onShowAnyway={() => setShowAnyway(true)}
+        />
+      );
+    }
+    return <ItineraryView state={result} />;
   }
 
   return <PlanProgress events={events} destination={constraints.destination} />;
+}
+
+export default function PlanPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanInner />
+    </Suspense>
+  );
 }

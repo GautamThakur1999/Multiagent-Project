@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { parseRequest, streamPlanRequest } from "@/lib/planClient";
+import {
+  parseRequest,
+  streamPlanRequest,
+  regenerateDayRequest,
+  makeCheaperRequest,
+} from "@/lib/planClient";
 import type { TripConstraints } from "@/lib/types";
 
 const CONSTRAINTS: TripConstraints = {
@@ -137,5 +142,27 @@ describe("streamPlanRequest", () => {
     });
     expect(error).not.toBeNull();
     expect((error as unknown as { error: string }).error).toBe("planning_error");
+  });
+});
+
+describe("regenerateDayRequest / makeCheaperRequest", () => {
+  it("regenerateDayRequest returns the new day on success", async () => {
+    const day = { day: 2, city: "Kyoto", items: [{ title: "x", description: "y", category: "temple", priority: "must-do", est_cost_usd: 0, time_block: "morning" }] };
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ day }) })));
+    const res = await regenerateDayRequest(CONSTRAINTS, 2);
+    expect(res.ok).toBe(true);
+    if (!res.ok) throw new Error("expected ok");
+    expect(res.data.day.day).toBe(2);
+  });
+
+  it("makeCheaperRequest surfaces an error on non-ok", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, json: async () => ({ error: "upstream_error", message: "no" }) }))
+    );
+    const res = await makeCheaperRequest(CONSTRAINTS);
+    expect(res.ok).toBe(false);
+    if (res.ok) throw new Error("expected error");
+    expect(res.error.error).toBe("upstream_error");
   });
 });

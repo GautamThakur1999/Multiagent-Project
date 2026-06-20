@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ItineraryDay, TripState } from "@/lib/types";
 import { saveTrip } from "@/lib/savedTrips";
+import { encodeTripState } from "@/lib/shareLink";
+import { regenerateDayRequest, makeCheaperRequest } from "@/lib/planClient";
+import { usePlan } from "./PlanProvider";
 import { Container } from "./Layout";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
@@ -11,25 +15,75 @@ import { ComplianceCard } from "./ComplianceCard";
 import { BudgetCard } from "./BudgetCard";
 import { LogisticsCard } from "./LogisticsCard";
 
-export function ItineraryView({ state }: { state: TripState }) {
-  const { constraints } = state;
-  const days = state.final_itinerary ?? [];
+export function ItineraryView({ state: initial }: { state: TripState }) {
+  const router = useRouter();
+  const { setTripState } = usePlan();
+  const [state, setState] = useState<TripState>(initial);
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const stub = (label: string) => setNotice(`${label} arrives in the next update.`);
+  const { constraints } = state;
+  const days = state.final_itinerary ?? [];
+
+  // Keep the shared/stay-detail screens in sync with whatever is on screen.
+  useEffect(() => {
+    setTripState(state);
+  }, [state, setTripState]);
+
   const onSave = () => {
     saveTrip(state);
     setSaved(true);
     setNotice("Saved to your trips on this device.");
   };
-  const onRegenerate = (_day: ItineraryDay) => stub("Per-day regeneration");
-  const onCheaper = (_day: ItineraryDay) => stub("“Make it cheaper”");
+
+  const onShare = async () => {
+    const url = `${window.location.origin}/plan?shared=${encodeTripState(state)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setNotice("Shareable link copied to your clipboard.");
+    } catch {
+      setNotice(`Your shareable link: ${url}`);
+    }
+  };
+
+  const onExport = () => {
+    setNotice("Opening your print / PDF view…");
+    if (typeof window !== "undefined") window.print();
+  };
+
+  const onRegenerate = async (day: ItineraryDay) => {
+    setBusy(true);
+    setNotice(`Regenerating day ${day.day}…`);
+    const res = await regenerateDayRequest(constraints, day.day);
+    setBusy(false);
+    if (res.ok) {
+      setState((s) => ({
+        ...s,
+        final_itinerary: (s.final_itinerary ?? []).map((d) => (d.day === day.day ? res.data.day : d)),
+      }));
+      setNotice(`Day ${day.day} regenerated.`);
+    } else {
+      setNotice(res.error.message);
+    }
+  };
+
+  const onCheaper = async () => {
+    setBusy(true);
+    setNotice("Finding a cheaper plan…");
+    const res = await makeCheaperRequest(constraints);
+    setBusy(false);
+    if (res.ok) {
+      setState(res.data.state);
+      setNotice("Updated with a more budget-friendly plan.");
+    } else {
+      setNotice(res.error.message);
+    }
+  };
 
   return (
     <main className="flex-grow">
       <Container className="py-stack-lg">
-        {/* Header */}
         <header className="mb-stack-lg flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="mb-2 flex items-center gap-2 text-label-md text-primary">
@@ -43,11 +97,19 @@ export function ItineraryView({ state }: { state: TripState }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => stub("Sharing")}>
+            <Button variant="ghost" onClick={() => router.push("/stay")}>
+              <Icon name="hotel" className="text-[18px]" />
+              Stay &amp; logistics
+            </Button>
+            <Button variant="ghost" onClick={() => router.push("/confirm")}>
+              <Icon name="edit" className="text-[18px]" />
+              Edit
+            </Button>
+            <Button variant="ghost" onClick={onShare}>
               <Icon name="ios_share" className="text-[18px]" />
               Share
             </Button>
-            <Button variant="ghost" onClick={() => stub("Export")}>
+            <Button variant="ghost" onClick={onExport}>
               <Icon name="download" className="text-[18px]" />
               Export
             </Button>
@@ -63,7 +125,7 @@ export function ItineraryView({ state }: { state: TripState }) {
             role="status"
             className="mb-gutter flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2 text-label-md text-on-surface"
           >
-            <Icon name="info" filled className="text-[18px] text-primary" />
+            <Icon name={busy ? "progress_activity" : "info"} filled className={`text-[18px] text-primary ${busy ? "animate-spin" : ""}`} />
             {notice}
           </div>
         )}
@@ -82,11 +144,10 @@ export function ItineraryView({ state }: { state: TripState }) {
           </div>
         )}
 
-        {/* Body: itinerary + sticky sidebar */}
         <div className="flex flex-col gap-gutter lg:flex-row">
-          <div className="space-y-stack-lg lg:w-2/3">
+          <div className={`space-y-stack-lg lg:w-2/3 ${busy ? "pointer-events-none opacity-60" : ""}`}>
             {days.map((day) => (
-              <DayCard key={day.day} day={day} onRegenerate={onRegenerate} onCheaper={onCheaper} />
+              <DayCard key={day.day} day={day} onRegenerate={onRegenerate} onCheaper={() => onCheaper()} />
             ))}
           </div>
           <aside className="lg:w-1/3">

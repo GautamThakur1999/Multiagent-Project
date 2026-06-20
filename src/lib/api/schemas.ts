@@ -13,6 +13,19 @@ export const PlanRequestSchema = z.object({
 });
 export type PlanRequest = z.infer<typeof PlanRequestSchema>;
 
+/** `POST /api/regenerate-day` body. */
+export const RegenerateDayRequestSchema = z.object({
+  constraints: TripConstraintsSchema,
+  day: z.number().int().positive(),
+});
+export type RegenerateDayRequest = z.infer<typeof RegenerateDayRequestSchema>;
+
+/** `POST /api/cheaper` body. */
+export const CheaperRequestSchema = z.object({
+  constraints: TripConstraintsSchema,
+});
+export type CheaperRequest = z.infer<typeof CheaperRequestSchema>;
+
 /** Structured API error body. */
 export interface ApiError {
   error: string;

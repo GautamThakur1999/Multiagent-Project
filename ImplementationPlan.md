@@ -273,6 +273,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ---
 
 ## SPRINT 9 — Stay/Logistics detail, adjustment/edge state, edit & export flows
+**Status:** DONE (2026-06-20)
 **Goal:** Complete the remaining screens and the key interactions that make the plan usable and editable.
 
 **Design references:** `.../stay_logistics_details/`, `.../request_adjustment/`.
@@ -287,11 +288,11 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Out of scope:** accounts/DB, real booking, collaboration (PRD future).
 
 **Acceptance criteria**
-- [ ] Stay/logistics and adjustment screens match designs and are responsive.
-- [ ] "Make it cheaper" / "Regenerate this day" update the itinerary via API.
-- [ ] Export, Share link, and Save (localStorage) all work end-to-end.
-- [ ] Infeasible request routes to the adjustment screen with suggestions.
-- [ ] Tests + build green.
+- [x] Stay/logistics and adjustment screens match designs and are responsive.
+- [x] "Make it cheaper" / "Regenerate this day" update the itinerary via API.
+- [x] Export, Share link, and Save (localStorage) all work end-to-end.
+- [x] Infeasible request routes to the adjustment screen with suggestions.
+- [x] Tests + build green.
 
 ---
 
@@ -336,7 +337,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | API + SSE | ✅ Done | `POST /api/parse` + `POST /api/plan` (SSE); guardrails, destination cache, cost/latency logging; 28 tests. |
 | Landing + Constraint screens | ✅ Done | Component library + Landing + Confirm wired to `/api/parse`; 18 component/client tests + 3 Playwright (system Chrome via `channel`). |
 | Progress + Itinerary screens | ✅ Done | SSE reader + `PlanProgress` + `ItineraryView` (day cards + sticky sidebar); `/plan` wired; Save→localStorage; 15 tests + 1 E2E. |
-| Stay/Logistics + adjustment + edit/export | ⬜ Not started | |
+| Stay/Logistics + adjustment + edit/export | ✅ Done | `/stay`, `/trips`, adjustment screen; `/api/regenerate-day` + `/api/cheaper`; export(print)/share(link)/save; 15 tests. |
 | Hardening / deploy | ⬜ Not started | |
 
 Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
@@ -567,7 +568,27 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 - **First thing Sprint 9 should verify:** `npm test` + `npm run build` + `npm run test:e2e` green from clean. Then Sprint 9 (Stay/Logistics detail + adjustment/edge screens + **real** edit/export/share): the stub handlers live in `ItineraryView` (`onRegenerate`/`onCheaper` in `DayCard`, Share/Export buttons) — replace the `stub()` notices with real calls to **new** `/api/regenerate-day` & `/api/cheaper` handlers (Sprint 6 deferred them). The infeasible/clarification path already routes through `/confirm`; the adjustment screen should handle a `review_result.overall === "fail"` best-effort `TripState` (caveats already render in `ItineraryView`). Reuse `saveTrip`/`listSavedTrips` for the "my trips" list.
 
 ### Sprint 9 — Stay/Logistics + adjustment + edit/export
-- _pending_
+- **Status:** DONE (2026-06-20)
+- **What was built:** The remaining screens + the edit/export/share/save interactions. 15 new tests; **188 unit + 4 Playwright** green.
+- **Key files:**
+  - **Backend edit endpoints:** `src/lib/api/edit.ts` — `makeCheaper()` (re-plans at 0.8× budget, restores original budget for display), `regenerateDay()` (re-plans fresh, returns one day), + HTTP-independent `handleCheaper`/`handleRegenerateDay`. Routes `app/api/cheaper/route.ts`, `app/api/regenerate-day/route.ts`. Schemas added to `src/lib/api/schemas.ts`. Both re-run the pipeline **without the destination cache** so output actually changes.
+  - **Client:** `planClient.ts` — `regenerateDayRequest()`, `makeCheaperRequest()` (non-streaming JSON via shared `postJson`). `src/lib/shareLink.ts` — `encodeTripState`/`decodeTripState` (URL-safe base64, browser `btoa` + Node `Buffer` fallback). `src/lib/savedTrips.ts` — added `deleteTrip()`.
+  - **Screens:** `src/components/StayLogistics.tsx` (city-grouped neighborhood cards w/ price tier, rationale, map placeholder; Shinkansen `TransitCard` with an **external "Book" deep-link** — `target=_blank`, links out to a search, no transaction). `src/components/RequestAdjustment.tsx` (infeasible/failed-review state: failed checks, budget suggestion, "raise budget & re-plan" / "edit details" / "show anyway").
+  - **`ItineraryView` rewired:** now owns local `TripState`, wires `DayCard` Regenerate→`/api/regenerate-day` (patches that day) and "Make it cheaper"→`/api/cheaper` (replaces state); **Share** (copies a `?shared=` link), **Export** (`window.print()`), **Save** (localStorage), plus header links to `/stay` and `/confirm`. Syncs the current state into `PlanProvider.tripState` (for `/stay` + shared links).
+  - **Routes/pages:** `app/stay/page.tsx` (reads `usePlan().tripState`), `app/trips/page.tsx` (lists `listSavedTrips()`, view via `?shared=`, delete), `app/plan/page.tsx` rewritten: `<Suspense>` + `useSearchParams` to render a `?shared=` link directly, route to `RequestAdjustment` when `review_result.overall === "fail"` (with a budget re-plan + "show anyway"), otherwise stream → `ItineraryView`.
+  - **`PlanProvider`** extended with `tripState` (persisted to `sessionStorage`).
+  - Tests: `edit.test.ts` (5), `shareLink.test.ts` (2), `stay-adjustment.test.tsx` (4), `savedTrips` (+1 delete), `planClient` (+2 regen/cheaper), `itinerary` (+1 regenerate round-trip; ItineraryView tests now mock `next/navigation` + wrap in `PlanProvider`).
+- **Decisions / deviations:**
+  - **"Make it cheaper" re-optimizes the WHOLE plan** (re-plan at 80% budget) rather than just one day — simplest meaningful behavior; "Regenerate this day" swaps a single day from a fresh re-plan.
+  - **Export = `window.print()`** (browser → Save as PDF). Sprint 10 could add a `@media print` stylesheet to hide nav/buttons for a cleaner PDF.
+  - **Share = full state in a base64 URL.** Self-contained (no DB, per non-goals) but the URL can get large for long trips; a short-link service / compression is a future enhancement. `/trips` "View" reuses the same `?shared=` path.
+  - **Adjustment routing** keys off `review_result.overall === "fail"`. Since the pipeline always returns a best-effort plan, the screen offers "show me the best-effort plan anyway".
+  - Skipped the designs' decorative images and the per-screen left side-nav; reused the shared component library + tokens.
+- **Verification:**
+  - `npm test` → **188 passed (23 files)** — edit (5), shareLink (2), stay-adjustment (4), + regen/cheaper/delete additions.
+  - `npm run lint` → clean · `npm run build` → green (routes `/stay`, `/trips`, `/api/regenerate-day`, `/api/cheaper` added).
+  - `npm run test:e2e` → **4 passed** (existing landing→plan→itinerary flow intact after the `/plan` rewrite).
+- **First thing Sprint 10 should verify:** `npm test` + `npm run build` + `npm run test:e2e` green from clean. Sprint 10 (hardening) targets: **E2E for the new paths** (regenerate/cheaper round-trip with stubbed `/api/regenerate-day` + `/api/cheaper`; adjustment screen via a failing-review stubbed `/api/plan`; `/trips` save→list→view; `?shared=` render); **a11y audit** of all 7 screens (Landing/Confirm/Progress/Itinerary/Stay/Adjustment/Trips); **perf** (P50 latency — live plan was ~7s last measured); **observability** (cost/latency already logged via `logging.ts` — surface a metric); **deploy config** (`vercel.json`/Dockerfile + README); and the carried items: `npm audit` (1 critical/7 high), Node 24-vs-20, a `@media print` sheet for Export, and SSE keep-alive/cancel. The app is feature-complete end-to-end on live Gemini (`.env.local` has a verified key).
 
 ### Sprint 10 — Hardening & deploy
 - _pending_

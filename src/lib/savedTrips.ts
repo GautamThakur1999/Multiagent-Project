@@ -23,6 +23,15 @@ export function listSavedTrips(): SavedTrip[] {
   }
 }
 
+/** Removes a saved trip by id. */
+export function deleteTrip(id: string): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(listSavedTrips().filter((t) => t.id !== id)));
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+
 /** Persists a trip to localStorage (newest first) and returns the saved record. */
 export function saveTrip(state: TripState): SavedTrip {
   const trip: SavedTrip = {

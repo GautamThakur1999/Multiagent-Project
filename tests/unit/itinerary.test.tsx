@@ -6,10 +6,25 @@ import { BudgetCard } from "@/components/BudgetCard";
 import { LogisticsCard } from "@/components/LogisticsCard";
 import { PlanProgress } from "@/components/PlanProgress";
 import { ItineraryView } from "@/components/ItineraryView";
+import { PlanProvider } from "@/components/PlanProvider";
 import type { ProgressEvent } from "@/lib/agents/pipeline";
 import type { ItineraryDay, TripState } from "@/lib/types";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/",
+}));
+
 afterEach(cleanup);
+
+function renderItinerary(state: TripState) {
+  return render(
+    <PlanProvider>
+      <ItineraryView state={state} />
+    </PlanProvider>
+  );
+}
 
 const DAY1: ItineraryDay = {
   day: 1,
@@ -121,9 +136,10 @@ describe("PlanProgress", () => {
 
 describe("ItineraryView", () => {
   beforeEach(() => localStorage.clear());
+  afterEach(() => vi.unstubAllGlobals());
 
   it("renders the header, day cards and the sticky sidebar cards", () => {
-    render(<ItineraryView state={TRIP} />);
+    renderItinerary(TRIP);
     expect(screen.getByRole("heading", { name: /Your Japan Journey/ })).toBeInTheDocument();
     expect(screen.getByText(/2 days · Tokyo & Kyoto/)).toBeInTheDocument();
     expect(screen.getByText("Senso-ji")).toBeInTheDocument();
@@ -134,17 +150,35 @@ describe("ItineraryView", () => {
   });
 
   it("saves the trip to localStorage and confirms", () => {
-    render(<ItineraryView state={TRIP} />);
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    renderItinerary(TRIP);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     expect(screen.getByRole("button", { name: /saved/i })).toBeInTheDocument();
     const saved = JSON.parse(localStorage.getItem("voyageai:savedTrips") ?? "[]");
     expect(saved).toHaveLength(1);
     expect(saved[0].title).toBe("2 days in Japan");
   });
 
-  it("shows a notice for stubbed actions (share/export)", () => {
-    render(<ItineraryView state={TRIP} />);
+  it("shares a copied link", async () => {
+    renderItinerary(TRIP);
     fireEvent.click(screen.getByRole("button", { name: /share/i }));
-    expect(screen.getByRole("status")).toHaveTextContent(/next update/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(/link/i);
+  });
+
+  it("regenerates a day via the API and patches it in", async () => {
+    const newDay: ItineraryDay = {
+      day: 1,
+      city: "Tokyo",
+      date_label: "Day 1",
+      items: [
+        { title: "Meiji Shrine (fresh pick)", description: "Calm forest shrine.", category: "temple", priority: "must-do", est_cost_usd: 0, time_block: "morning" },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ day: newDay }) }))
+    );
+    renderItinerary(TRIP);
+    fireEvent.click(screen.getAllByRole("button", { name: /regenerate this day/i })[0]);
+    expect(await screen.findByText("Meiji Shrine (fresh pick)")).toBeInTheDocument();
   });
 });

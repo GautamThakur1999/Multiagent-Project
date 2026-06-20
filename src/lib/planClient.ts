@@ -3,7 +3,7 @@
 import type { ExtractionResult } from "@/lib/agents/orchestrator";
 import type { ProgressEvent } from "@/lib/agents/pipeline";
 import type { ApiError } from "@/lib/api/schemas";
-import type { TripConstraints, TripState } from "@/lib/types";
+import type { ItineraryDay, TripConstraints, TripState } from "@/lib/types";
 
 export type ParseOutcome =
   | { ok: true; result: ExtractionResult }
@@ -133,4 +133,46 @@ export async function streamPlanRequest(
   }
   const tail = parseFrame(buffer.trim());
   if (tail) dispatch(tail.event, tail.data, handlers);
+}
+
+// --- /api/regenerate-day and /api/cheaper (non-streaming JSON) ---------------
+
+async function postJson<T>(url: string, payload: unknown): Promise<
+  { ok: true; data: T } | { ok: false; error: ApiError }
+> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        error: "network_error",
+        message: "We couldn't reach the planner. Check your connection and try again.",
+        details: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    body = { error: "bad_response", message: "The planner returned an unexpected response." };
+  }
+  if (!res.ok) return { ok: false, error: body as ApiError };
+  return { ok: true, data: body as T };
+}
+
+/** Regenerates a single day; returns the fresh day on success. */
+export function regenerateDayRequest(constraints: TripConstraints, day: number) {
+  return postJson<{ day: ItineraryDay }>("/api/regenerate-day", { constraints, day });
+}
+
+/** Re-plans cheaper; returns a full updated TripState on success. */
+export function makeCheaperRequest(constraints: TripConstraints) {
+  return postJson<{ state: TripState }>("/api/cheaper", { constraints });
 }
