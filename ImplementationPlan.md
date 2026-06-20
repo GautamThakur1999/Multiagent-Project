@@ -248,6 +248,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 ---
 
 ## SPRINT 8 — Agents-working (progress) screen + Itinerary result screen
+**Status:** DONE (2026-06-20)
 **Goal:** The centerpiece. Consume the SSE stream to animate the multi-agent progress, then render the full validated itinerary.
 
 **Design references:** `.../ai_planning_in_progress/`, `.../your_itinerary/`.
@@ -264,10 +265,10 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 **Out of scope:** stay-detail screen, adjustment/edge screen, real export/share (Sprint 9).
 
 **Acceptance criteria**
-- [ ] Progress screen reflects real SSE events in order with completion states.
-- [ ] Itinerary screen renders a complete 5-day Japan plan matching the design, with correct tags/pills/costs.
-- [ ] Sidebar compliance + budget + logistics cards populate from API data.
-- [ ] E2E happy path green; build green.
+- [x] Progress screen reflects real SSE events in order with completion states.
+- [x] Itinerary screen renders a complete 5-day Japan plan matching the design, with correct tags/pills/costs.
+- [x] Sidebar compliance + budget + logistics cards populate from API data.
+- [x] E2E happy path green; build green.
 
 ---
 
@@ -334,7 +335,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | Full pipeline (parallel + review loop) | ✅ Done | `runPipeline` + `buildDraftItinerary`; parallel fan-out, bounded re-plan, partial-failure degradation; 8 tests. `synthesize` wired. |
 | API + SSE | ✅ Done | `POST /api/parse` + `POST /api/plan` (SSE); guardrails, destination cache, cost/latency logging; 28 tests. |
 | Landing + Constraint screens | ✅ Done | Component library + Landing + Confirm wired to `/api/parse`; 18 component/client tests + 3 Playwright (system Chrome via `channel`). |
-| Progress + Itinerary screens | ⬜ Not started | |
+| Progress + Itinerary screens | ✅ Done | SSE reader + `PlanProgress` + `ItineraryView` (day cards + sticky sidebar); `/plan` wired; Save→localStorage; 15 tests + 1 E2E. |
 | Stay/Logistics + adjustment + edit/export | ⬜ Not started | |
 | Hardening / deploy | ⬜ Not started | |
 
@@ -543,7 +544,27 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 - **First thing Sprint 8 should verify:** `npm test` + `npm run build` + `npm run test:e2e` green from clean (E2E uses system Chrome — no browser download needed). Then build the Progress + Itinerary screens: read confirmed constraints from `usePlan().constraints` (or `sessionStorage` key `voyageai:constraints`) on `/plan`, open the SSE stream via `POST /api/plan` with `{ constraints }`, render `event: progress` (orchestrator + 3 specialists + review) then the terminal `event: itinerary` (`TripState`). **Replace the `/plan` placeholder.** Reuse `Card`, `Tag`, `PriorityPill`, `Container`, `Icon`. `EventSource` can't POST — use `fetch` + `ReadableStream` reader (or a small SSE-over-fetch parser) to consume the stream.
 
 ### Sprint 8 — Progress + Itinerary screens
-- _pending_
+- **Status:** DONE (2026-06-20)
+- **What was built:** The centerpiece — the agents-working **Progress** screen (consumes the `/api/plan` SSE) and the **Itinerary** result screen (day cards + sticky sidebar), wired into `/plan`. 15 new unit tests + 1 E2E; **173 unit tests + 4 Playwright** green.
+- **Key files:**
+  - `src/lib/planClient.ts` — **added `streamPlanRequest(constraints, handlers, signal?)`**: POSTs to `/api/plan` and parses the SSE byte stream (`fetch` + `ReadableStream` reader; reassembles frames split across chunks; normalizes CRLF). Dispatches `onProgress` / `onItinerary` / `onError`. (`EventSource` can't POST — this is the replacement.)
+  - `src/lib/savedTrips.ts` — `saveTrip(state)` / `listSavedTrips()` over `localStorage` key `voyageai:savedTrips` (newest first; title `"{N} days in {dest}"`).
+  - `src/components/PlanProgress.tsx` — orchestrator node + 4 specialist/review cards. `statusFor()` derives **idle/active/done from the LATEST event per stage**, so a re-plan re-activating a stage is handled. Cards expose `data-testid="agent-<stage>"` + `data-status`.
+  - `src/components/ItineraryView.tsx` — header (title/dates + Share/Export/**Save**), caveats banner, day list + sticky sidebar. Self-contained: Save→localStorage (real); Share/Export/regenerate/cheaper are **stubs that show a transient notice** (Sprint 9).
+  - `src/components/DayCard.tsx` — morning/afternoon/evening timeline rows (time label, category `Tag`, `PriorityPill`, title, description, `Est. $X`/`Free`, off-peak tip), per-day "Regenerate this day" / "Make it cheaper" buttons.
+  - `src/components/ComplianceCard.tsx` (review checks → ✓/⚠/✗), `BudgetCard.tsx` (total/target + category bars), `LogisticsCard.tsx` (stays + inter-city legs).
+  - `app/plan/page.tsx` — **replaces the Sprint 7 placeholder.** Reads `usePlan().constraints`, starts the stream once (`useRef` guard — prevents the React 18 StrictMode dev double-POST), and renders Progress → Itinerary, with empty/error states.
+  - Tests: `tests/unit/itinerary.test.tsx` (9), `tests/unit/savedTrips.test.ts` (3), `planClient.test.ts` (+3 streaming), `smoke.spec.ts` (+1 E2E: landing→plan→itinerary, stubs `/api/parse` JSON + `/api/plan` SSE).
+- **Decisions / deviations:**
+  - **Reused the Sprint 7 design tokens/components** (Card, Tag, PriorityPill, Container, Icon, Button). Skipped the designs' decorative images and the left side-nav (Itinerary/Map/Budget/Logistics nav) — out of the required scope; the sidebar cards carry the same info.
+  - **Stub actions** (Share/Export, per-day Regenerate/Make-cheaper) intentionally show a "arrives in the next update" notice rather than no-op, so they're discoverable and testable. Sprint 9 wires `/api/regenerate-day` + `/api/cheaper` and real export/share.
+  - **`/plan` start-once guard:** the stream kicks off in a `useEffect` behind a `useRef` flag (no cleanup-abort) so dev StrictMode doesn't fire two live plan requests. Trade-off: navigating away mid-stream orphans a short-lived fetch (acceptable; production isn't double-invoked).
+  - **Live-verified earlier:** the real `/api/plan` stream + `TripState` shape this screen consumes was confirmed end-to-end against live Gemini last session (5-day Japan plan, review pass).
+- **Verification:**
+  - `npm test` → **173 passed (20 files)** — itinerary (9), savedTrips (3), planClient streaming (3) added.
+  - `npm run lint` → clean · `npm run build` → green (`/plan` 6.26 kB).
+  - `npm run test:e2e` → **4 passed** (system Chrome) incl. landing→plan→itinerary.
+- **First thing Sprint 9 should verify:** `npm test` + `npm run build` + `npm run test:e2e` green from clean. Then Sprint 9 (Stay/Logistics detail + adjustment/edge screens + **real** edit/export/share): the stub handlers live in `ItineraryView` (`onRegenerate`/`onCheaper` in `DayCard`, Share/Export buttons) — replace the `stub()` notices with real calls to **new** `/api/regenerate-day` & `/api/cheaper` handlers (Sprint 6 deferred them). The infeasible/clarification path already routes through `/confirm`; the adjustment screen should handle a `review_result.overall === "fail"` best-effort `TripState` (caveats already render in `ItineraryView`). Reuse `saveTrip`/`listSavedTrips` for the "my trips" list.
 
 ### Sprint 9 — Stay/Logistics + adjustment + edit/export
 - _pending_

@@ -1,5 +1,21 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { parseRequest } from "@/lib/planClient";
+import { parseRequest, streamPlanRequest } from "@/lib/planClient";
+import type { TripConstraints } from "@/lib/types";
+
+const CONSTRAINTS: TripConstraints = {
+  destination: "Japan", duration_days: 5, cities: ["Tokyo"], budget_usd: 3000, currency: "USD",
+  preferences: [], avoidances: [], travelers: 1, pace: "moderate", clarifications_needed: [],
+};
+
+function sseResponse(chunks: string[]): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk));
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
 
 function mockFetch(response: { ok: boolean; body: unknown }) {
   vi.stubGlobal(
@@ -58,5 +74,68 @@ describe("parseRequest", () => {
     expect(outcome.ok).toBe(false);
     if (outcome.ok) throw new Error("expected error");
     expect(outcome.error.error).toBe("network_error");
+  });
+});
+
+describe("streamPlanRequest", () => {
+  it("dispatches ordered progress events then the itinerary", async () => {
+    const tripState = { constraints: CONSTRAINTS, final_itinerary: [{ day: 1, city: "Tokyo" }] };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        sseResponse([
+          'event: progress\ndata: {"stage":"orchestrator","status":"started"}\n\n',
+          'event: progress\ndata: {"stage":"destination","status":"started"}\n\n',
+          'event: progress\ndata: {"stage":"destination","status":"done"}\n\n',
+          `event: itinerary\ndata: ${JSON.stringify(tripState)}\n\n`,
+        ])
+      )
+    );
+
+    const progress: string[] = [];
+    let itinerary: unknown = null;
+    let error: unknown = null;
+    await streamPlanRequest(CONSTRAINTS, {
+      onProgress: (e) => progress.push(`${e.stage}:${e.status}`),
+      onItinerary: (s) => (itinerary = s),
+      onError: (e) => (error = e),
+    });
+
+    expect(progress).toEqual(["orchestrator:started", "destination:started", "destination:done"]);
+    expect(itinerary).toEqual(tripState);
+    expect(error).toBeNull();
+  });
+
+  it("reassembles a frame split across stream chunks", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        sseResponse(['event: progress\ndata: {"stage":"budget","sta', 'tus":"done"}\n\n'])
+      )
+    );
+    const progress: string[] = [];
+    await streamPlanRequest(CONSTRAINTS, {
+      onProgress: (e) => progress.push(`${e.stage}:${e.status}`),
+      onItinerary: () => {},
+      onError: () => {},
+    });
+    expect(progress).toEqual(["budget:done"]);
+  });
+
+  it("calls onError on a non-ok response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: "planning_error", message: "boom" }), { status: 500 })
+      )
+    );
+    let error: { error?: string } | null = null;
+    await streamPlanRequest(CONSTRAINTS, {
+      onProgress: () => {},
+      onItinerary: () => {},
+      onError: (e) => (error = e),
+    });
+    expect(error).not.toBeNull();
+    expect((error as unknown as { error: string }).error).toBe("planning_error");
   });
 });
