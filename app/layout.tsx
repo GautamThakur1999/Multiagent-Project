@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { PlanProvider } from "@/components/PlanProvider";
+import { TopNav } from "@/components/TopNav";
+import { Footer } from "@/components/Footer";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -29,8 +32,12 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=optional"
         />
       </head>
-      <body className="bg-background font-sans text-on-background antialiased">
-        {children}
+      <body className="flex min-h-screen flex-col bg-background font-sans text-on-background antialiased">
+        <PlanProvider>
+          <TopNav />
+          <div className="flex flex-grow flex-col">{children}</div>
+          <Footer />
+        </PlanProvider>
       </body>
     </html>
   );
