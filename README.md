@@ -75,5 +75,26 @@ tests/
   e2e/                Playwright (stubs /api/parse)
 ```
 
-> **Status:** Sprints 1–7 complete (full multi-agent backend + HTTP API + Landing/Confirm screens).
-> See [`ImplementationPlan.md`](./ImplementationPlan.md) for per-sprint progress and handovers.
+> **Status:** Complete (Sprints 1–10) — full multi-agent backend, HTTP API, all screens, hardened.
+> See [`ImplementationPlan.md`](./ImplementationPlan.md) for per-sprint handovers and
+> [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the system design.
+
+## Testing
+
+```bash
+npm test            # Vitest — 193 unit/integration tests, mocked Gemini (no live calls)
+npm run test:e2e    # Playwright — 10 journeys + axe a11y scan (uses system Chrome)
+```
+
+- E2E uses a **system-installed browser** by default (`channel`) to avoid Playwright's bundled
+  download; set `PW_CHANNEL=msedge` to use Edge, or unset it in CI to use the bundled build.
+
+## Deployment (Vercel)
+
+1. Push to GitHub and import the repo in Vercel (framework auto-detected as Next.js; `vercel.json` included).
+2. Set the **`GEMINI_API_KEY`** environment variable in the Vercel project settings.
+3. Deploy. The `/api/plan`, `/api/cheaper`, and `/api/regenerate-day` routes run on the Node runtime
+   with `maxDuration = 60` (the multi-agent plan can take ~10–40s — Vercel **Pro** recommended for the
+   60s limit; Hobby caps functions at 10s).
+
+`npm run build` is the production build; the app is otherwise a standard Next.js 14 deployment.

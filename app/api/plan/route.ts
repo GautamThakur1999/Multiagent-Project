@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import { validatePlanBody, streamPlan, formatSSE } from "@/lib/api/plan";
 import { buildGeminiClient, getDestinationCache } from "@/lib/api/deps";
 import { logRequestLatency } from "@/lib/logging";
+import { createPlanMetrics, logPlanSummary, spotAuditPlan } from "@/lib/metrics";
+import type { TripState } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// The multi-agent plan can take ~10–40s; allow headroom (Vercel Pro).
+export const maxDuration = 60;
 
 export async function POST(req: Request): Promise<Response> {
   const started = Date.now();
@@ -24,9 +28,10 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json(validation.error, { status: validation.status });
   }
 
+  const metrics = createPlanMetrics();
   let client;
   try {
-    client = buildGeminiClient();
+    client = buildGeminiClient(metrics.onLog);
   } catch {
     return NextResponse.json(
       { error: "server_error", message: "The planner is unavailable right now." },
@@ -37,14 +42,19 @@ export async function POST(req: Request): Promise<Response> {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const captured: { state: TripState | null } = { state: null };
       const emit = (event: Parameters<typeof formatSSE>[0]) => {
+        if (event.event === "itinerary") captured.state = event.data;
         controller.enqueue(encoder.encode(formatSSE(event)));
       };
       await streamPlan(validation.constraints, client, emit, {
         cache: getDestinationCache(),
       });
       controller.close();
-      logRequestLatency("/api/plan", Date.now() - started, true);
+      const ms = Date.now() - started;
+      logRequestLatency("/api/plan", ms, true);
+      logPlanSummary("/api/plan", metrics, ms, captured.state?.replan_count ?? 0);
+      if (captured.state) spotAuditPlan(captured.state);
     },
   });
 

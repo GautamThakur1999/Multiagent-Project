@@ -34,8 +34,16 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-screen flex-col bg-background font-sans text-on-background antialiased">
         <PlanProvider>
+          <a
+            href="#main-content"
+            className="skip-link rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-on-primary"
+          >
+            Skip to content
+          </a>
           <TopNav />
-          <div className="flex flex-grow flex-col">{children}</div>
+          <div id="main-content" className="flex flex-grow flex-col">
+            {children}
+          </div>
           <Footer />
         </PlanProvider>
       </body>

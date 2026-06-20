@@ -96,7 +96,7 @@ export function ItineraryView({ state: initial }: { state: TripState }) {
               {constraints.budget_usd.toLocaleString()}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="no-print flex flex-wrap gap-2">
             <Button variant="ghost" onClick={() => router.push("/stay")}>
               <Icon name="hotel" className="text-[18px]" />
               Stay &amp; logistics

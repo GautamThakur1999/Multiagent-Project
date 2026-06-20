@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
+import { toResponseJsonSchema } from "./schema";
 
 export interface UsageMetadata {
   promptTokens?: number;
@@ -31,19 +32,26 @@ export interface GeminiClient {
 }
 
 // Injectable raw generator — used by the real impl and overridable in tests.
-// Receives an AbortSignal so a timed-out request can be cancelled in flight.
+// Receives an AbortSignal so a timed-out request can be cancelled in flight, and
+// an optional JSON schema to enable Gemini structured output.
 export type RawGenerateFn = (
   prompt: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  responseSchema?: unknown
 ) => Promise<{ text: string; usage?: UsageMetadata }>;
 
 function buildRealRawFn(apiKey: string, model: string): RawGenerateFn {
   const ai = new GoogleGenAI({ apiKey });
-  return async (prompt: string, signal?: AbortSignal) => {
+  return async (prompt: string, signal?: AbortSignal, responseSchema?: unknown) => {
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
-      config: { responseMimeType: "application/json", abortSignal: signal },
+      config: {
+        responseMimeType: "application/json",
+        // Structured output: constrain the model to the exact schema (Sprint 10).
+        ...(responseSchema ? { responseJsonSchema: responseSchema } : {}),
+        abortSignal: signal,
+      },
     });
     return {
       text: response.text ?? "",
@@ -98,13 +106,14 @@ export function createGeminiClient(
       schema: z.ZodType<T>
     ): Promise<T> {
       let lastError: Error = new Error("Unknown error");
+      const responseSchema = toResponseJsonSchema(schema);
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const start = Date.now();
 
         let raw: { text: string; usage?: UsageMetadata };
         try {
-          raw = await withTimeout((signal) => generate(prompt, signal), timeoutMs);
+          raw = await withTimeout((signal) => generate(prompt, signal, responseSchema), timeoutMs);
         } catch (err) {
           const e = err instanceof Error ? err : new Error(String(err));
           const isTimeout = e.message.includes("timed out");
