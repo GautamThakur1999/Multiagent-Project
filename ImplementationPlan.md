@@ -243,7 +243,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 - [x] Landing and confirmation screens match the design exports (layout, colors, type) and are responsive (desktop + mobile).
 - [x] Submitting the Japan sentence calls `/api/parse` and shows correct editable constraints.
 - [x] Clarification flow renders when constraints are incomplete.
-- [x] Component tests + build green. ⚠️ Playwright **specs written** (`tests/e2e/smoke.spec.ts`, `/api/parse` stubbed) but **not executed-green in this sandbox** — the `npx playwright install chromium` step stalled mid-extraction (env issue noted since Sprint 1). Runs in CI / Sprint 10.
+- [x] Component tests + Playwright (3 specs) + build green. Playwright runs against **system Chrome** via `channel` (`playwright.config.ts`) — the bundled-Chromium download deterministically fails to extract in this sandbox (Defender locks the 252MB `chrome.dll` mid-extraction); CI uses the bundled build. Run locally with `npm run test:e2e`.
 
 ---
 
@@ -333,7 +333,7 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | Review agent | ✅ Done | `ReviewAgent` — **deterministic** 6-check gate (no LLM); 8 tests. |
 | Full pipeline (parallel + review loop) | ✅ Done | `runPipeline` + `buildDraftItinerary`; parallel fan-out, bounded re-plan, partial-failure degradation; 8 tests. `synthesize` wired. |
 | API + SSE | ✅ Done | `POST /api/parse` + `POST /api/plan` (SSE); guardrails, destination cache, cost/latency logging; 28 tests. |
-| Landing + Constraint screens | ✅ Done | Component library + Landing + Confirm wired to `/api/parse`; 18 component/client tests. Playwright specs written (browser install stalled locally). |
+| Landing + Constraint screens | ✅ Done | Component library + Landing + Confirm wired to `/api/parse`; 18 component/client tests + 3 Playwright (system Chrome via `channel`). |
 | Progress + Itinerary screens | ⬜ Not started | |
 | Stay/Logistics + adjustment + edit/export | ⬜ Not started | |
 | Hardening / deploy | ⬜ Not started | |
@@ -534,13 +534,13 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
   - **`/api/plan` body is `{ constraints }`** (Sprint 6 contract), so the confirm screen carries the *confirmed* `TripConstraints` (post-edit) into `/plan` via `PlanProvider` + `sessionStorage`.
   - Design classes: used `text-*` size tokens (which carry weight/spacing) + global `font-sans`; did **not** define the export's `font-*` family utilities (all map to Plus Jakarta Sans anyway).
   - Created a placeholder `/plan` route so "build my plan" doesn't 404 — clearly labeled, not the real progress/itinerary screen (out of scope).
-- **⚠️ Playwright execution caveat:** the specs are written and correct, but `npx playwright install chromium` **stalled mid-extraction in this sandbox** (chrome.dll extracted, chrome.exe never written after ~15 min). Build + lint + 158 unit tests (incl. the component tests covering the same screen logic) are green. Sprint 1 already flagged the browser install as a flaky env step; **Sprint 10 owns the full E2E suite + CI browser setup.** To run locally: retry `npx playwright install chromium` then `npm run test:e2e`.
+- **Playwright (resolved):** the bundled-Chromium download **deterministically fails to extract in this sandbox** — root-caused to the `oopDownloadBrowserMain.js` worker hanging right after it writes the 252MB `chrome.dll` (Windows Defender real-time monitoring locks the large DLL; the dead worker then holds `__dirlock`, so every `npx playwright install` retry blocks on the lock). **Fix:** `playwright.config.ts` now drives a **system-installed browser** via `channel` (default `"chrome"` locally; `PW_CHANNEL` to override; bundled build in CI). `npm run test:e2e` → **3 passed** against system Chrome. If a future sandbox lacks Chrome/Edge, set `PW_CHANNEL=msedge` or run in CI.
 - **Verification:**
   - `npm test` → **158 passed (18 files)** — components (14) + planClient (4) added.
   - `npm run lint` → `✔ No ESLint warnings or errors`.
   - `npm run build` → `✓ Compiled successfully`; routes `/`, `/confirm`, `/plan` (static) + `/api/parse`, `/api/plan` (dynamic).
-  - `npm run test:e2e` → **not executed** (chromium binary install stalled — see caveat).
-- **First thing Sprint 8 should verify:** `npm test` + `npm run build` green from clean, and retry `npx playwright install chromium` so E2E can run. Then build the Progress + Itinerary screens: read confirmed constraints from `usePlan().constraints` (or `sessionStorage` key `voyageai:constraints`) on `/plan`, open the SSE stream via `POST /api/plan` with `{ constraints }`, render `event: progress` (orchestrator + 3 specialists + review) then the terminal `event: itinerary` (`TripState`). **Replace the `/plan` placeholder.** Reuse `Card`, `Tag`, `PriorityPill`, `Container`, `Icon`. `EventSource` can't POST — use `fetch` + `ReadableStream` reader (or a small SSE-over-fetch parser) to consume the stream.
+  - `npm run test:e2e` → **3 passed** (system Chrome via `channel`; see Playwright note).
+- **First thing Sprint 8 should verify:** `npm test` + `npm run build` + `npm run test:e2e` green from clean (E2E uses system Chrome — no browser download needed). Then build the Progress + Itinerary screens: read confirmed constraints from `usePlan().constraints` (or `sessionStorage` key `voyageai:constraints`) on `/plan`, open the SSE stream via `POST /api/plan` with `{ constraints }`, render `event: progress` (orchestrator + 3 specialists + review) then the terminal `event: itinerary` (`TripState`). **Replace the `/plan` placeholder.** Reuse `Card`, `Tag`, `PriorityPill`, `Container`, `Icon`. `EventSource` can't POST — use `fetch` + `ReadableStream` reader (or a small SSE-over-fetch parser) to consume the stream.
 
 ### Sprint 8 — Progress + Itinerary screens
 - _pending_
