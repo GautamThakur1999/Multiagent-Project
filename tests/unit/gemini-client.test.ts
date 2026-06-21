@@ -153,6 +153,59 @@ describe("createGeminiClient — API error", () => {
 });
 
 // ---------------------------------------------------------------------------
+// createGeminiClient — rate-limit (429) retry with backoff
+// ---------------------------------------------------------------------------
+
+describe("createGeminiClient — rate-limit (429) retry", () => {
+  it("retries on a 429 / RESOURCE_EXHAUSTED and succeeds on the next call", async () => {
+    const logs: LogEvent[] = [];
+    const rawFn = makeRawFn([
+      new Error('429 RESOURCE_EXHAUSTED: {"error":{"code":429}}'),
+      JSON.stringify(VALID_PAYLOAD),
+    ]);
+    const client = createGeminiClient(
+      { apiKey: "test", rateLimitBaseMs: 0, onLog: (e) => logs.push(e) },
+      rawFn
+    );
+    const result = await client.generateStructured("prompt", SimpleSchema);
+    expect(result).toEqual(VALID_PAYLOAD);
+    expect(logs[0].success).toBe(false);
+    expect(logs[0].errorType).toBe("rate_limit");
+    expect(logs[logs.length - 1].success).toBe(true);
+  });
+
+  it("gives up after maxRateLimitRetries on a persistent 429 (then degrades upstream)", async () => {
+    const logs: LogEvent[] = [];
+    const rawFn = makeRawFn([
+      new Error("429 RESOURCE_EXHAUSTED"),
+      new Error("429 RESOURCE_EXHAUSTED"),
+      new Error("429 RESOURCE_EXHAUSTED"),
+    ]);
+    const client = createGeminiClient(
+      { apiKey: "test", maxRateLimitRetries: 2, rateLimitBaseMs: 0, onLog: (e) => logs.push(e) },
+      rawFn
+    );
+    await expect(client.generateStructured("prompt", SimpleSchema)).rejects.toThrow(
+      /RESOURCE_EXHAUSTED/
+    );
+    // 1 initial attempt + 2 retries, all logged as rate_limit.
+    expect(logs.filter((l) => l.errorType === "rate_limit")).toHaveLength(3);
+  });
+
+  it("does NOT retry a non-rate-limit API error", async () => {
+    const logs: LogEvent[] = [];
+    const rawFn = makeRawFn([new Error("400 Bad Request")]);
+    const client = createGeminiClient(
+      { apiKey: "test", rateLimitBaseMs: 0, onLog: (e) => logs.push(e) },
+      rawFn
+    );
+    await expect(client.generateStructured("prompt", SimpleSchema)).rejects.toThrow("400 Bad Request");
+    expect(logs).toHaveLength(1);
+    expect(logs[0].errorType).toBe("api_error");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // createMockGeminiClient
 // ---------------------------------------------------------------------------
 

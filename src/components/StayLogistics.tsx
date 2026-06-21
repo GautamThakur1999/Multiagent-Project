@@ -1,12 +1,16 @@
 "use client";
 
 import type { LogisticsLeg, StayRecommendation, TripState } from "@/lib/types";
+import { formatNightlyRate, formatCostOrDash, isRateUnavailable } from "@/lib/format";
 import { Container } from "./Layout";
 import { Card } from "./Card";
 import { Icon } from "./Icon";
 
-function priceTier(stay: StayRecommendation): string {
-  const avg = (stay.price_range_usd_per_night.min + stay.price_range_usd_per_night.max) / 2;
+/** A "$"–"$$$$" affordability badge, or null when the rate is unavailable. */
+function priceTier(stay: StayRecommendation): string | null {
+  const { min, max } = stay.price_range_usd_per_night;
+  if (isRateUnavailable(min, max)) return null;
+  const avg = (min + max) / 2;
   const tier = avg < 100 ? 1 : avg < 200 ? 2 : avg < 350 ? 3 : 4;
   return "$".repeat(tier);
 }
@@ -21,15 +25,20 @@ function NeighborhoodCard({ stay }: { stay: StayRecommendation }) {
       {/* Photo placeholder (no external images) */}
       <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-primary-container/20 to-secondary-container/20">
         <Icon name="apartment" className="text-[44px] text-primary/40" />
-        <span className="absolute right-4 top-4 rounded-full bg-surface/90 px-3 py-1 text-label-sm font-bold text-primary backdrop-blur">
-          {priceTier(stay)}
-        </span>
+        {priceTier(stay) && (
+          <span className="absolute right-4 top-4 rounded-full bg-surface/90 px-3 py-1 text-label-sm font-bold text-primary backdrop-blur">
+            {priceTier(stay)}
+          </span>
+        )}
       </div>
       <div className="p-stack-md">
         <h4 className="mb-1 text-lg font-bold text-on-surface">{stay.neighborhood}</h4>
         <p className="mb-1 text-label-sm text-on-surface-variant">
-          {stay.nights} night{stay.nights > 1 ? "s" : ""} · ${stay.price_range_usd_per_night.min}–$
-          {stay.price_range_usd_per_night.max}/night
+          {stay.nights} night{stay.nights > 1 ? "s" : ""} ·{" "}
+          {formatNightlyRate(
+            stay.price_range_usd_per_night.min,
+            stay.price_range_usd_per_night.max
+          )}
         </p>
         <p className="mb-4 text-body-md text-on-surface-variant">{stay.rationale}</p>
         {/* Map placeholder */}
@@ -68,7 +77,7 @@ function TransitCard({ leg }: { leg: LogisticsLeg }) {
         </div>
         <div>
           <div className="mb-1 text-label-sm uppercase text-on-surface-variant">Est. Cost</div>
-          <div className="text-lg font-bold text-secondary">${leg.est_cost_usd}</div>
+          <div className="text-lg font-bold text-secondary">{formatCostOrDash(leg.est_cost_usd)}</div>
         </div>
       </div>
       <a

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ItineraryDay, TripState } from "@/lib/types";
 import { saveTrip } from "@/lib/savedTrips";
 import { encodeTripState } from "@/lib/shareLink";
-import { regenerateDayRequest, makeCheaperRequest } from "@/lib/planClient";
+import { streamPlanRequest, regenerateDayRequest, makeCheaperRequest } from "@/lib/planClient";
 import { usePlan } from "./PlanProvider";
 import { Container } from "./Layout";
 import { Button } from "./Button";
@@ -81,6 +81,26 @@ export function ItineraryView({ state: initial }: { state: TripState }) {
     }
   };
 
+  // Re-run the full plan — used when the result came back degraded (e.g. logistics
+  // unavailable). With the client's 429 backoff, a transient rate-limit often
+  // clears on a retry; if it doesn't, the user simply gets the same honest caveats.
+  const onRetry = async () => {
+    if (busy) return;
+    setBusy(true);
+    setNotice("Rebuilding your plan with full details…");
+    let failed = false;
+    await streamPlanRequest(constraints, {
+      onProgress: () => {},
+      onItinerary: (s) => setState(s),
+      onError: (err) => {
+        failed = true;
+        setNotice(err.message);
+      },
+    });
+    setBusy(false);
+    if (!failed) setNotice("Plan rebuilt.");
+  };
+
   return (
     <main className="flex-grow">
       <Container className="py-stack-lg">
@@ -141,6 +161,12 @@ export function ItineraryView({ state: initial }: { state: TripState }) {
                 <li key={i}>{c}</li>
               ))}
             </ul>
+            <div className="no-print mt-3">
+              <Button variant="secondary" size="md" onClick={onRetry} disabled={busy}>
+                <Icon name="refresh" className="text-[18px]" />
+                Try again
+              </Button>
+            </div>
           </div>
         )}
 

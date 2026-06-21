@@ -1,4 +1,5 @@
 import type { LogisticsLeg, StayRecommendation } from "@/lib/types";
+import { formatNightlyRate, formatCostOrDash } from "@/lib/format";
 import { Card } from "./Card";
 import { Icon } from "./Icon";
 
@@ -31,8 +32,11 @@ export function LogisticsCard({
                 {stay.neighborhood}, {stay.city}
               </div>
               <div className="text-label-sm text-on-surface-variant">
-                {stay.nights} night{stay.nights > 1 ? "s" : ""} · ${stay.price_range_usd_per_night.min}–$
-                {stay.price_range_usd_per_night.max}/night
+                {stay.nights} night{stay.nights > 1 ? "s" : ""} ·{" "}
+                {formatNightlyRate(
+                  stay.price_range_usd_per_night.min,
+                  stay.price_range_usd_per_night.max
+                )}
               </div>
             </div>
           </div>
@@ -43,8 +47,8 @@ export function LogisticsCard({
             <div>
               <div className="text-label-md font-semibold text-on-surface">{leg.mode}</div>
               <div className="text-label-sm text-on-surface-variant">
-                {leg.from} → {leg.to} · {Math.round((leg.duration_minutes / 60) * 10) / 10}h · $
-                {leg.est_cost_usd}
+                {leg.from} → {leg.to} · {Math.round((leg.duration_minutes / 60) * 10) / 10}h ·{" "}
+                {formatCostOrDash(leg.est_cost_usd)}
               </div>
             </div>
           </div>
