@@ -89,12 +89,29 @@ npm run test:e2e    # Playwright — 10 journeys + axe a11y scan (uses system Ch
 - E2E uses a **system-installed browser** by default (`channel`) to avoid Playwright's bundled
   download; set `PW_CHANNEL=msedge` to use Edge, or unset it in CI to use the bundled build.
 
-## Deployment (Vercel)
+## Deployment
 
-1. Push to GitHub and import the repo in Vercel (framework auto-detected as Next.js; `vercel.json` included).
-2. Set the **`GEMINI_API_KEY`** environment variable in the Vercel project settings.
-3. Deploy. The `/api/plan`, `/api/cheaper`, and `/api/regenerate-day` routes run on the Node runtime
-   with `maxDuration = 60` (the multi-agent plan can take ~10–40s — Vercel **Pro** recommended for the
-   60s limit; Hobby caps functions at 10s).
+This is a **single full-stack Next.js app** — the UI pages and the `/api/*` routes
+deploy together as one unit. Pick **one** target. In both cases the only required
+runtime config is the **`GEMINI_API_KEY`** environment variable (use a **paid /
+billing-enabled** key — the free tier is 20 req/min and one plan spends several calls).
 
-`npm run build` is the production build; the app is otherwise a standard Next.js 14 deployment.
+### Option A — Vercel (serverless)
+
+1. Push to GitHub and import the repo in Vercel (Next.js auto-detected; `vercel.json` included).
+2. Set **`GEMINI_API_KEY`** in Project → Settings → Environment Variables.
+3. Deploy. The `/api/plan`, `/api/cheaper`, and `/api/regenerate-day` routes run on the Node
+   runtime with `maxDuration = 60` (the multi-agent plan takes ~10–40s — Vercel **Pro**
+   recommended; Hobby caps functions at 10s, which would cut the plan off).
+
+### Option B — Railway (long-running container) — recommended for the SSE plan route
+
+Railway runs the app as a persistent Node server (`Dockerfile` → `.next/standalone`), so the
+streaming `/api/plan` route has **no function time limit**.
+
+1. Push to GitHub and create a Railway project from the repo (`railway.json` selects the `Dockerfile`).
+2. Set **`GEMINI_API_KEY`** in the service's **Variables**. Railway injects `PORT` automatically.
+3. Deploy. Health-checks hit `/`; the container binds `0.0.0.0:$PORT`.
+
+`npm run build` is the production build (emits `.next/standalone` via `output: "standalone"`).
+To run the container locally: `docker build -t voyageai . && docker run -p 3000:3000 -e GEMINI_API_KEY=… voyageai`.
