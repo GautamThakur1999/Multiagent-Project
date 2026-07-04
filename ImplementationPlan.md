@@ -339,7 +339,8 @@ These are fixed so sessions don't re-litigate architecture and waste context. If
 | Landing + Constraint screens | ✅ Done | Component library + Landing + Confirm wired to `/api/parse`; 18 component/client tests + 3 Playwright (system Chrome via `channel`). |
 | Progress + Itinerary screens | ✅ Done | SSE reader + `PlanProgress` + `ItineraryView` (day cards + sticky sidebar); `/plan` wired; Save→localStorage; 15 tests + 1 E2E. |
 | Stay/Logistics + adjustment + edit/export | ✅ Done | `/stay`, `/trips`, adjustment screen; `/api/regenerate-day` + `/api/cheaper`; export(print)/share(link)/save; 15 tests. |
-| Hardening / deploy | ✅ Done | **Structured-output reliability fix**; full E2E + axe a11y; per-plan metrics + spot-audit; vercel deploy config; ARCHITECTURE.md. |
+| Hardening / deploy | ✅ Done | **Structured-output reliability fix**; full E2E + axe a11y; per-plan metrics + spot-audit; ARCHITECTURE.md. |
+| Post-v1 hardening + deploy | ✅ Done | 429 retry/backoff + degraded-state UX ("Rate unavailable"/"Try again"); Railway (`Dockerfile`) + Vercel deploy config; Node 20 pin. Pushed to GitHub. |
 
 Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
 
@@ -610,3 +611,15 @@ Legend: ⬜ Not started · 🟡 In progress/partial · ✅ Done
   - Live: structured output confirmed (3/3 specialist schemas valid first-try); `/api/parse` ~2s.
 - **Final state:** The product is **feature-complete and hardened** end-to-end on live Gemini — Landing → Confirm → parallel multi-agent plan (SSE) → Itinerary with edit/export/share/save, Stay/Logistics detail, infeasible-budget adjustment, and a my-trips list. Stateless v1 (no DB/accounts), Japan seed destination, mocked-Gemini test suite.
 - **Future enhancements (post-v1):** (1) **live external travel APIs** — replace the hand-curated `src/lib/data/japan.ts` with real maps/hotel/rail data + multi-destination coverage (un-stubs the "Book" deep-links); (2) **accounts + DB** — cross-device saved trips and short share links (current `?shared=` URLs can get large); (3) finer edit granularity (per-day diffing vs. whole-plan re-plan); (4) feedback-targeted re-planning (pass failed-check guidance into agent prompts); (5) SSE keep-alive/cancel; (6) address `npm audit` advisories + Node 20 pin; (7) booking/affiliate integration (PRD Phase 3).
+
+### Post-v1 — Rate-limit resilience, degraded-plan UX & deployment (2026-07-04)
+*Not a numbered sprint — ad-hoc hardening after a live run, ahead of deploying to GitHub → Railway/Vercel.*
+- **Root cause of the intermittent "logistics unavailable" caveat:** a live reliability sweep proved it was the Gemini **free-tier 429 rate limit** (20 req/min), *not* a schema/logistics bug — under the concurrent fan-out every agent 429s equally; logistics just lost the race. `generateStructured` had treated 429 as a non-retryable `api_error`.
+- **Fixes — commit `c8968b1`:**
+  - `src/lib/gemini/client.ts` — retry 429/`RESOURCE_EXHAUSTED` with **bounded backoff** (honors the API `retryDelay`, capped ~4s so a request never hangs); new `rate_limit` log type. Timeouts / other API errors still surface immediately (unchanged).
+  - `src/lib/format.ts` (new) — `formatNightlyRate`/`formatCostOrDash`: render the degraded `$0–$0` stay rate as **"Rate unavailable"** and a `$0` leg cost as **"—"** (was a misleading `$0`). Used by `LogisticsCard` + `StayLogistics`; the `$` price-tier badge is hidden when unavailable.
+  - `src/components/ItineraryView.tsx` — **"Try again"** button in the caveats banner (re-streams `/api/plan`).
+  - Tests: `tests/unit/format.test.ts` (6) + 429 retry / give-up / no-retry-on-other-errors cases in `gemini-client.test.ts`.
+- **Deployment config — commit `cb7358e`:** `Dockerfile` (Next.js `output: "standalone"`) + `.dockerignore` + `railway.json` (Railway/any container — no function time cap, best fit for the SSE `/api/plan` route) · `vercel.json` branch fix (enable `master`) · `package.json` `engines: node 20.x` (closes the Sprint 10 "Node 20 pin" item) · `public/.gitkeep` (Docker `COPY`) · README **Deployment** now covers both platforms.
+- **Verification:** `npm test` → **202 passed (25 files)** · `npm run lint` clean · `npm run build` green (10 routes, emits `.next/standalone`) · `npm run test:e2e` → **10 passed** (system Chrome). Full **live** end-to-end run succeeded once quota recovered (parse → plan → itinerary, real prices, no degradation) — confirming the degradation was purely the rate limit.
+- **Shipped:** pushed to `github.com/GautamThakur1999/Multiagent-Project` (branch `master`). **Remaining deploy gate is operational only:** set a **paid/billing-enabled `GEMINI_API_KEY`** on the host; on Vercel use a plan honoring `maxDuration = 60`, or use **Railway** (no function cap).
