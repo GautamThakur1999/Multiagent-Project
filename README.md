@@ -82,7 +82,7 @@ tests/
 ## Testing
 
 ```bash
-npm test            # Vitest — 193 unit/integration tests, mocked Gemini (no live calls)
+npm test            # Vitest — 202 unit/integration tests, mocked Gemini (no live calls)
 npm run test:e2e    # Playwright — 10 journeys + axe a11y scan (uses system Chrome)
 ```
 
