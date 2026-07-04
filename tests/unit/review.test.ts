@@ -166,6 +166,12 @@ describe("ReviewAgent — all six checks", () => {
   it("fails when the city sequence backtracks", () => {
     const backtracking: LogisticsPlan = {
       ...goodLogistics,
+      // Both cities are overnight stays, so returning to Tokyo after sleeping in
+      // Kyoto is a genuine backtrack — not a day trip.
+      stays: [
+        { city: "Tokyo", neighborhood: "Yanaka", rationale: "Quiet", price_range_usd_per_night: { min: 80, max: 150 }, nights: 1 },
+        { city: "Kyoto", neighborhood: "Gion", rationale: "Central", price_range_usd_per_night: { min: 90, max: 170 }, nights: 1 },
+      ],
       day_sequence: [
         { day: 1, city: "Tokyo" },
         { day: 2, city: "Kyoto" },

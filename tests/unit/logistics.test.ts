@@ -176,6 +176,46 @@ describe("isNonBacktrackingSequence", () => {
   });
 });
 
+describe("isNonBacktrackingSequence — day trips (stays-aware)", () => {
+  const stay = (city: string, nights: number) => ({
+    city,
+    neighborhood: `${city} central`,
+    rationale: "base",
+    price_range_usd_per_night: { min: 80, max: 150 },
+    nights,
+  });
+
+  it("accepts a day trip to a city with no overnight stay", () => {
+    // Osaka base, day-trip to nearby Nara, back to Osaka — Nara has no stay.
+    const seq = [
+      { day: 1, city: "Osaka" },
+      { day: 2, city: "Osaka" },
+      { day: 3, city: "Nara" },
+      { day: 4, city: "Osaka" },
+    ];
+    expect(isNonBacktrackingSequence(seq, [stay("Osaka", 3)])).toBe(true);
+  });
+
+  it("still flags returning to a city you slept in (overnight backtrack)", () => {
+    const seq = [
+      { day: 1, city: "Tokyo" },
+      { day: 2, city: "Kyoto" },
+      { day: 3, city: "Tokyo" },
+    ];
+    expect(isNonBacktrackingSequence(seq, [stay("Tokyo", 1), stay("Kyoto", 1)])).toBe(false);
+  });
+
+  it("falls back to the strict rule when stays are empty or omitted", () => {
+    const seq = [
+      { day: 1, city: "Tokyo" },
+      { day: 2, city: "Kyoto" },
+      { day: 3, city: "Tokyo" },
+    ];
+    expect(isNonBacktrackingSequence(seq, [])).toBe(false);
+    expect(isNonBacktrackingSequence(seq)).toBe(false);
+  });
+});
+
 describe("buildLogisticsPrompt", () => {
   it("embeds the Shinkansen grounding and backtracking rule", () => {
     const prompt = buildLogisticsPrompt(japanConstraints(), getDestinationData("Japan"));
