@@ -1,5 +1,7 @@
 # AI Travel Planner
 
+[![CI](https://github.com/GautamThakur1999/Multiagent-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/GautamThakur1999/Multiagent-Project/actions/workflows/ci.yml)
+
 A natural-language travel request (e.g. *"Plan a 5-day trip to Japan. Tokyo + Kyoto. $3,000 budget. Love food and temples, hate crowds."*) becomes a budget-aware, day-by-day itinerary via a multi-agent system:
 
 ```
