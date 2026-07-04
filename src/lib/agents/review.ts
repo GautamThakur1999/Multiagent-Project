@@ -154,7 +154,7 @@ export class ReviewAgent {
   }
 
   private checkTravelTime(logistics: LogisticsPlan): ReviewCheck {
-    const ok = isNonBacktrackingSequence(logistics.day_sequence);
+    const ok = isNonBacktrackingSequence(logistics.day_sequence, logistics.stays);
     return {
       check: "travel_time_realistic",
       status: ok ? "pass" : "fail",
